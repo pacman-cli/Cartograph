@@ -25,7 +25,7 @@ jobs:
 
       - name: Upload coverage report
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: jacoco-report
           path: target/site/jacoco/
@@ -49,7 +49,7 @@ jobs:
 
       - name: Upload javadoc
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: apidocs
           path: target/site/apidocs/
