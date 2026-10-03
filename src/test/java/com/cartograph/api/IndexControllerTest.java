@@ -17,6 +17,7 @@ import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
 
 import java.util.List;
+import java.util.Optional;
 
 import static org.mockito.Mockito.*;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -66,6 +67,27 @@ class IndexControllerTest {
                         {"code":"NOT_FOUND","message":"The requested resource was not found."}
                         """));
         verifyNoInteractions(service);
+    }
+
+    @Test
+    void returnsStoredSnapshotWithoutIndexing() throws Exception {
+        when(service.snapshot("acme/widgets")).thenReturn(Optional.of(
+                new GraphSnapshot("acme/widgets", "sha", List.of(), List.of(), List.of(), new GraphMetrics(0, 0, 0, 0))));
+
+        mvc.perform(get("/api/v1/repositories/acme/widgets"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.repository").value("acme/widgets"))
+                .andExpect(jsonPath("$.commitSha").value("sha"));
+        verify(service, never()).index(anyString());
+    }
+
+    @Test
+    void mapsUnknownRepositorySnapshotToStructuredNotFound() throws Exception {
+        when(service.snapshot("acme/unknown")).thenReturn(Optional.empty());
+
+        mvc.perform(get("/api/v1/repositories/acme/unknown"))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.code").value("NOT_FOUND"));
     }
 
     @Test

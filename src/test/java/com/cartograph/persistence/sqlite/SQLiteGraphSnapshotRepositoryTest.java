@@ -49,6 +49,21 @@ class SQLiteGraphSnapshotRepositoryTest {
     }
 
     @Test
+    void returnsMostRecentlySavedSnapshotPerRepository() {
+        repository.save(snapshot("acme/app", "sha-1"));
+        GraphSnapshot later = snapshot("acme/app", "sha-2");
+        repository.save(later);
+        repository.save(snapshot("acme/other", "sha-9"));
+
+        assertThat(repository.findLatest("acme/app")).contains(later);
+    }
+
+    @Test
+    void findLatestIsEmptyForUnknownRepository() {
+        assertThat(repository.findLatest("never/indexed")).isEmpty();
+    }
+
+    @Test
     void missingSnapshotIsEmpty() {
         assertThat(repository.find("missing", "commit")).isEmpty();
     }

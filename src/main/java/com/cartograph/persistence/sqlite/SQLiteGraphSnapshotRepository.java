@@ -51,14 +51,28 @@ public final class SQLiteGraphSnapshotRepository implements GraphSnapshotReposit
                                 rs.getString("repository"), rs.getString("commit_sha"), rs.getString("metrics_json"),
                                 rs.getString("warnings_json")), repository, commitSha);
         if (records.isEmpty()) return Optional.empty();
-        SnapshotRecord record = records.get(0);
+        return Optional.of(loadSnapshot(records.get(0)));
+    }
+
+    @Override
+    public Optional<GraphSnapshot> findLatest(String repository) {
+        List<SnapshotRecord> records = jdbc.query(
+                "SELECT id, repository, commit_sha, metrics_json, warnings_json FROM repository_snapshot "
+                        + "WHERE repository = ? ORDER BY indexed_at DESC, id DESC LIMIT 1",
+                (rs, n) -> new SnapshotRecord(rs.getLong("id"), rs.getString("repository"), rs.getString("commit_sha"),
+                        rs.getString("metrics_json"), rs.getString("warnings_json")), repository);
+        if (records.isEmpty()) return Optional.empty();
+        return Optional.of(loadSnapshot(records.get(0)));
+    }
+
+    private GraphSnapshot loadSnapshot(SnapshotRecord record) {
         List<GraphNode> nodes = jdbc.query("SELECT * FROM graph_node WHERE snapshot_id = ? ORDER BY id",
                 GraphSnapshotRowMapper.NODE, record.id());
         List<GraphEdge> edges = jdbc.query("SELECT * FROM graph_edge WHERE snapshot_id = ? ORDER BY id",
                 GraphSnapshotRowMapper.EDGE, record.id());
-        return Optional.of(new GraphSnapshot(record.repository(), record.commitSha(), nodes, edges,
+        return new GraphSnapshot(record.repository(), record.commitSha(), nodes, edges,
                 read(record.warningsJson(), new TypeReference<List<GraphWarning>>() { }),
-                read(record.metricsJson(), GraphMetrics.class)));
+                read(record.metricsJson(), GraphMetrics.class));
     }
 
     @Override

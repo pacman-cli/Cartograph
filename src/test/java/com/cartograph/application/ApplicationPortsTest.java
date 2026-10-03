@@ -29,6 +29,9 @@ class ApplicationPortsTest {
             @Override public Optional<GraphSnapshot> find(String repository, String commitSha) {
                 return Optional.of(graphSnapshot);
             }
+            @Override public Optional<GraphSnapshot> findLatest(String repository) {
+                return Optional.empty();
+            }
             @Override public void save(GraphSnapshot snapshot) { }
         };
 

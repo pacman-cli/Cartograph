@@ -3,6 +3,17 @@ package com.cartograph.application;
 import com.cartograph.graph.model.RepositoryRef;
 import com.cartograph.graph.model.RepositorySnapshot;
 
+/**
+ * Driven port for obtaining repository sources. Adapters (e.g. the GitHub
+ * REST adapter) fetch a {@link RepositorySnapshot} for an exact
+ * {@link RepositoryRef}; the application core never talks to GitHub itself.
+ *
+ * <p>Contract: implementations must return a snapshot whose
+ * {@code repository()} and {@code commitSha()} match the requested ref
+ * exactly, must enforce the configured indexing guardrails, and must never
+ * resolve a moving ref inside {@link #fetchResolved} — the caller owns
+ * commit resolution so the graph is always pinned to one SHA.
+ */
 @FunctionalInterface
 public interface RepositoryFetcher {
     RepositorySnapshot fetch(RepositoryRef ref);

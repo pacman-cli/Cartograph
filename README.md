@@ -82,19 +82,56 @@ mvn spring-boot:run
 </details>
 
 <details>
+<summary><b>Linux / WSL / Windows via SDKMAN</b> (click to expand)</summary>
+
+```bash
+# Linux, WSL, or macOS with SDKMAN (https://sdkman.io)
+sdk install java 17.0.13-tem
+sdk install maven
+mvn spring-boot:run
+```
+</details>
+
+<details>
+<summary><b>Windows (PowerShell)</b> (click to expand)</summary>
+
+Install [Eclipse Temurin 17](https://adoptium.net/temurin/releases/?version=17)
+and Maven, then:
+
+```powershell
+$env:JAVA_HOME = "C:\Program Files\Eclipse Adoptium\jdk-17"
+$env:Path = "$env:JAVA_HOME\bin;$env:Path"
+mvn spring-boot:run
+```
+</details>
+
+Only a JDK 17 and Maven are required — SQLite is embedded, nothing else to install.
+
+<details>
 <summary><b>Configuration</b> (all optional)</summary>
 
 | Key | Default | What it does |
 |---|---|---|
 | `cartograph.sqlite.path` | `./data/cartograph.db` | Where graph snapshots are persisted |
 | `cartograph.github.token` | — (env: `GITHUB_TOKEN`) | GitHub token; raises API rate limits |
+| `cartograph.github.base-url` | `https://api.github.com` | GitHub API base URL (overridable for testing) |
 | `cartograph.github.max-files` | `10000` | Max supported candidate files |
 | `cartograph.github.max-total-bytes` | `1073741824` (1 GiB) | Max supported-file content bytes |
 | `cartograph.github.max-file-bytes` | `10485760` (10 MiB) | Max single-file bytes |
 | `cartograph.github.max-response-bytes` | `33554432` (32 MiB) | Max GitHub API response bytes |
+| `cartograph.github.max-attempts` | `3` | Bounded retry attempts per GitHub call |
+| `cartograph.github.retry-backoff-millis` | `250` | Base backoff between retries (ms) |
+| `cartograph.github.max-retry-sleep-millis` | `5000` | Ceiling for a single retry sleep (ms) |
+| `cartograph.github.connect-timeout-millis` | `5000` | HTTP connect timeout (ms) |
+| `cartograph.github.read-timeout-millis` | `15000` | HTTP read timeout (ms) |
+| `cartograph.github.cache-max-entries` | `256` | Max entries in the GitHub response cache |
+| `cartograph.github.cache-max-bytes` | `16777216` (16 MiB) | Max response-cache bytes |
+| `cartograph.ratelimit.enabled` | `true` | Per-client rate limiting on `POST /api/v1/index` |
+| `cartograph.ratelimit.capacity` | `30` | Burst capacity of the per-client token bucket |
+| `cartograph.ratelimit.refill-per-minute` | `60` | Tokens refilled per minute per client |
 | `server.port` | `8080` | HTTP port |
 
-Set properties via `src/main/resources/application.yml`, command line (`--cartograph.sqlite.path=…`), or environment variables.
+Set properties via `src/main/resources/application.yml`, command line (`--cartograph.sqlite.path=…`), or environment variables (relaxed binding: `CARTOGRAPH_GITHUB_MAX_FILES=5000`).
 
 For Maven, pass application arguments as follows:
 
@@ -111,6 +148,10 @@ mvn spring-boot:run -Dspring-boot.run.arguments="--server.port=8081 --cartograph
 
 Liveness probe — returns `{"status":"UP"}` while the service is running.
 
+### `GET /api/v1/repositories/{owner}/{repo}`
+
+Returns the most recently stored snapshot for a repository **without touching GitHub** — pure local lookup. `404 NOT_FOUND` with the stable error body when the repository was never indexed.
+
 ### `POST /api/v1/index`
 
 Indexes (or returns the cached snapshot for) a public GitHub repository.
@@ -119,7 +160,7 @@ Indexes (or returns the cached snapshot for) a public GitHub repository.
 { "repositoryUrl": "https://github.com/<owner>/<repo>" }
 ```
 
-Every error uses a stable `{ "code": "...", "message": "..." }` body:
+Every error uses a stable `{ "code": "...", "message": "..." }` body (full catalog with client guidance: [docs/errors.md](docs/errors.md)):
 
 | HTTP | Code | Meaning |
 |---|---|---|
@@ -129,6 +170,7 @@ Every error uses a stable `{ "code": "...", "message": "..." }` body:
 | 403 | `UPSTREAM_GITHUB_ERROR` | GitHub denied access |
 | 413 | `REPOSITORY_LIMIT_EXCEEDED` | Repository exceeds configured caps |
 | 429 | `UPSTREAM_GITHUB_ERROR` | GitHub rate limit hit (set `GITHUB_TOKEN`) |
+| 429 | `RATE_LIMIT_EXCEEDED` | Client exceeded the indexing rate limit (`Retry-After` header is set) |
 | 502 | `UPSTREAM_GITHUB_ERROR` | GitHub returned an unusable response |
 | 500 | `INTERNAL_ERROR` | Unexpected server failure |
 

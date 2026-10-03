@@ -10,7 +10,11 @@ import javax.sql.DataSource;
 import static org.assertj.core.api.Assertions.assertThat;
 
 @SpringBootTest(classes = CartographApplication.class, properties = {"spring.flyway.enabled=false", "cartograph.github.max-files=37",
-        "cartograph.parser.javascript.enabled=false", "GITHUB_TOKEN=offline-test-token"})
+        "cartograph.parser.javascript.enabled=false", "GITHUB_TOKEN=offline-test-token",
+        "cartograph.github.max-attempts=5", "cartograph.github.retry-backoff-millis=100",
+        "cartograph.github.max-retry-sleep-millis=4000", "cartograph.github.connect-timeout-millis=1234",
+        "cartograph.github.read-timeout-millis=4567", "cartograph.github.cache-max-entries=7",
+        "cartograph.github.cache-max-bytes=4096"})
 class CartographApplicationTests {
 
     @Autowired Environment environment;
@@ -35,6 +39,17 @@ class CartographApplicationTests {
     @Test
     void bindsGitHubSettingsUnderCartographNamespace() {
         assertThat(github.limits().maxFileCount()).isEqualTo(37);
+    }
+
+    @Test
+    void bindsResilienceAndCacheSettingsUnderCartographNamespace() {
+        assertThat(github.maxAttempts()).isEqualTo(5);
+        assertThat(github.retryBackoffMillis()).isEqualTo(100);
+        assertThat(github.maxRetrySleepMillis()).isEqualTo(4000);
+        assertThat(github.connectTimeoutMillis()).isEqualTo(1234);
+        assertThat(github.readTimeoutMillis()).isEqualTo(4567);
+        assertThat(github.cacheMaxEntries()).isEqualTo(7);
+        assertThat(github.cacheMaxBytes()).isEqualTo(4096);
     }
 
     @Test

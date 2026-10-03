@@ -8,6 +8,7 @@ import com.cartograph.ingestion.GitHubUrlNormalizer;
 import org.springframework.stereotype.Service;
 
 import java.util.Objects;
+import java.util.Optional;
 
 /** Cache-first application orchestration for repository indexing. */
 @Service
@@ -42,5 +43,11 @@ public final class IndexRepositoryService {
             snapshots.save(built);
             return built;
         });
+    }
+
+    /** Returns the latest stored snapshot for {@code repository} without touching GitHub. */
+    public Optional<GraphSnapshot> snapshot(String repository) {
+        Objects.requireNonNull(repository, "repository");
+        return snapshots.findLatest(repository);
     }
 }
