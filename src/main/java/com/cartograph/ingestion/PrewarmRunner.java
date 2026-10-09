@@ -46,6 +46,9 @@ public class PrewarmRunner implements ApplicationRunner {
                 LOG.warn("Pre-warm failed for {}: {}", repository, e.getMessage());
             }
         }
-        LOG.info("Pre-warm finished: {}/{} repositories hot", succeeded, properties.repositories().size());
+        LOG.info(
+                "Pre-warm finished: {}/{} repositories hot",
+                succeeded,
+                properties.repositories().size());
     }
 }

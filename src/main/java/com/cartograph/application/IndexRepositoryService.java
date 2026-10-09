@@ -5,14 +5,13 @@ import com.cartograph.graph.model.GraphSnapshot;
 import com.cartograph.graph.model.RepositoryRef;
 import com.cartograph.graph.model.RepositorySnapshot;
 import com.cartograph.ingestion.GitHubUrlNormalizer;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import org.springframework.stereotype.Service;
-
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.stereotype.Service;
 
 /** Application orchestration that reuses completed graph snapshots for resolved commits. */
 @Service
@@ -35,8 +34,11 @@ public final class IndexRepositoryService {
      * @param snapshots stores and retrieves completed graph snapshots
      * @param graphBuilder builds a graph from a fetched repository snapshot
      */
-    public IndexRepositoryService(GitHubUrlNormalizer normalizer, RepositoryFetcher fetcher,
-            GraphSnapshotRepository snapshots, GraphBuilder graphBuilder) {
+    public IndexRepositoryService(
+            GitHubUrlNormalizer normalizer,
+            RepositoryFetcher fetcher,
+            GraphSnapshotRepository snapshots,
+            GraphBuilder graphBuilder) {
         this.normalizer = Objects.requireNonNull(normalizer);
         this.fetcher = Objects.requireNonNull(fetcher);
         this.snapshots = Objects.requireNonNull(snapshots);
@@ -68,7 +70,8 @@ public final class IndexRepositoryService {
             var cached = snapshots.find(ref.coordinate(), commit);
             GraphSnapshot result = cached.orElseGet(() -> {
                 RepositorySnapshot fetched = fetcher.fetchResolved(ref, commit);
-                if (fetched == null || !Objects.equals(commit, fetched.commitSha())
+                if (fetched == null
+                        || !Objects.equals(commit, fetched.commitSha())
                         || !ref.coordinate().equals(fetched.repository())) {
                     throw new IllegalStateException("Fetched repository does not match the resolved commit");
                 }
@@ -76,8 +79,11 @@ public final class IndexRepositoryService {
                 snapshots.save(built);
                 return built;
             });
-            LOG.info("Indexed repository={} commit={} outcome={} durationMs={}",
-                    ref.coordinate(), commit, cached.isPresent() ? "cache-hit" : "built",
+            LOG.info(
+                    "Indexed repository={} commit={} outcome={} durationMs={}",
+                    ref.coordinate(),
+                    commit,
+                    cached.isPresent() ? "cache-hit" : "built",
                     (System.nanoTime() - startedAt) / 1_000_000);
             return result;
         }

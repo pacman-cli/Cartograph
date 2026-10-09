@@ -1,5 +1,7 @@
 package com.cartograph.api;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+
 import com.cartograph.graph.model.EdgeKind;
 import com.cartograph.graph.model.GraphEdge;
 import com.cartograph.graph.model.GraphMetrics;
@@ -9,11 +11,8 @@ import com.cartograph.graph.model.GraphWarning;
 import com.cartograph.graph.model.SourceLocation;
 import com.cartograph.graph.model.SymbolKind;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import org.junit.jupiter.api.Test;
-
 import java.util.List;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
+import org.junit.jupiter.api.Test;
 
 /**
  * Pins the public JSON wire contract of {@link GraphSnapshotResponse}.
@@ -30,9 +29,12 @@ class GraphSnapshotResponseContractTest {
         GraphSnapshotResponse response = GraphSnapshotResponse.from(new GraphSnapshot(
                 "acme/widgets",
                 "e1f4a2b9c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8",
-                List.of(new GraphNode("fn:greet:1", SymbolKind.FUNCTION, "greet", "src/app.ts",
-                        10, 20, 4, 12)),
-                List.of(new GraphEdge("fn:greet:1", "fn:log:2", EdgeKind.CALLS, 1.0,
+                List.of(new GraphNode("fn:greet:1", SymbolKind.FUNCTION, "greet", "src/app.ts", 10, 20, 4, 12)),
+                List.of(new GraphEdge(
+                        "fn:greet:1",
+                        "fn:log:2",
+                        EdgeKind.CALLS,
+                        1.0,
                         new SourceLocation("src/app.ts", 12, 8, 12, 20))),
                 List.of(new GraphWarning("UNSUPPORTED_SYNTAX", "Decorator skipped", "src/app.ts", 3)),
                 new GraphMetrics(1, 1, 1, 19, 5)));
@@ -46,8 +48,12 @@ class GraphSnapshotResponseContractTest {
     @Test
     void emptyCollectionsSerializeAsArraysNeverOmittedOrNull() throws Exception {
         GraphSnapshotResponse response = GraphSnapshotResponse.from(new GraphSnapshot(
-                "acme/empty", "0123456789abcdef0123456789abcdef01234567",
-                List.of(), List.of(), List.of(), new GraphMetrics(0, 0, 0, 0, 0)));
+                "acme/empty",
+                "0123456789abcdef0123456789abcdef01234567",
+                List.of(),
+                List.of(),
+                List.of(),
+                new GraphMetrics(0, 0, 0, 0, 0)));
 
         String golden = """
                 {"repository":"acme/empty","commitSha":"0123456789abcdef0123456789abcdef01234567","nodes":[],"edges":[],"warnings":[],"metrics":{"filesSeen":0,"filesParsed":0,"nodes":0,"edges":0}}""";

@@ -1,9 +1,24 @@
 package com.cartograph;
 
+import static org.hamcrest.Matchers.empty;
+import static org.hamcrest.Matchers.greaterThan;
+import static org.hamcrest.Matchers.hasItem;
+import static org.hamcrest.Matchers.not;
+import static org.springframework.http.MediaType.APPLICATION_JSON;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+
 import com.cartograph.application.RepositoryFetcher;
 import com.cartograph.graph.model.RepositoryRef;
 import com.cartograph.graph.model.RepositorySnapshot;
 import com.cartograph.graph.model.SourceFile;
+import java.io.IOException;
+import java.io.UncheckedIOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.List;
+import java.util.concurrent.atomic.AtomicInteger;
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -14,22 +29,6 @@ import org.springframework.core.io.ClassPathResource;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 import org.springframework.test.web.servlet.MockMvc;
-
-import java.io.IOException;
-import java.io.UncheckedIOException;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.util.List;
-import java.util.concurrent.atomic.AtomicInteger;
-
-import static org.hamcrest.Matchers.greaterThan;
-import static org.hamcrest.Matchers.hasItem;
-import static org.hamcrest.Matchers.not;
-import static org.hamcrest.Matchers.empty;
-import static org.springframework.http.MediaType.APPLICATION_JSON;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 @SpringBootTest
 @AutoConfigureMockMvc
@@ -70,7 +69,8 @@ class IndexRepositoryEndToEndTest {
                 .andExpect(jsonPath("$.nodes", not(empty())))
                 .andExpect(jsonPath("$.edges", not(empty())));
 
-        org.junit.jupiter.api.Assertions.assertEquals(1, fetcher.fetchCount.get(), "second request must use SQLite cache");
+        org.junit.jupiter.api.Assertions.assertEquals(
+                1, fetcher.fetchCount.get(), "second request must use SQLite cache");
         org.junit.jupiter.api.Assertions.assertEquals(2, fetcher.resolveCommitCount.get());
     }
 
@@ -103,10 +103,13 @@ class IndexRepositoryEndToEndTest {
             org.junit.jupiter.api.Assertions.assertEquals("fixture-commit-sha", sha);
             fetchCount.incrementAndGet();
             try {
-                String source = new String(new ClassPathResource("fixtures/simple-ts-repo/main.ts")
-                        .getInputStream().readAllBytes(), java.nio.charset.StandardCharsets.UTF_8);
-                return new RepositorySnapshot(ref.coordinate(), sha,
-                        List.of(new SourceFile("main.ts", source, "typescript")));
+                String source = new String(
+                        new ClassPathResource("fixtures/simple-ts-repo/main.ts")
+                                .getInputStream()
+                                .readAllBytes(),
+                        java.nio.charset.StandardCharsets.UTF_8);
+                return new RepositorySnapshot(
+                        ref.coordinate(), sha, List.of(new SourceFile("main.ts", source, "typescript")));
             } catch (IOException e) {
                 throw new UncheckedIOException(e);
             }

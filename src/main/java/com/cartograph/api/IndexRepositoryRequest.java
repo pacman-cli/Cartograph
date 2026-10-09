@@ -7,4 +7,6 @@ import jakarta.validation.constraints.NotBlank;
  *
  * @param repositoryUrl public GitHub repository URL to normalize and index
  */
-public record IndexRepositoryRequest(@NotBlank(message = "repositoryUrl must not be blank") String repositoryUrl) { }
+public record IndexRepositoryRequest(
+        @NotBlank(message = "repositoryUrl must not be blank")
+        String repositoryUrl) {}

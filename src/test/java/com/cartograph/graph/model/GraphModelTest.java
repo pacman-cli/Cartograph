@@ -3,7 +3,6 @@ package com.cartograph.graph.model;
 import static org.junit.jupiter.api.Assertions.*;
 
 import java.util.List;
-
 import org.junit.jupiter.api.Test;
 
 class GraphModelTest {
@@ -30,8 +29,8 @@ class GraphModelTest {
     void snapshotIsKeyedByRepositoryAndCommitAndPreservesWarningsAndMetrics() {
         GraphWarning warning = new GraphWarning("UNRESOLVED", "Target could not be resolved", "src/A.java", 12);
         GraphMetrics metrics = new GraphMetrics(2, 1, 1, 0);
-        GraphSnapshot snapshot = new GraphSnapshot(
-                "acme/widgets", "abc123", List.of(), List.of(), List.of(warning), metrics);
+        GraphSnapshot snapshot =
+                new GraphSnapshot("acme/widgets", "abc123", List.of(), List.of(), List.of(warning), metrics);
 
         assertEquals("acme/widgets", snapshot.repository());
         assertEquals("abc123", snapshot.commitSha());
@@ -41,8 +40,8 @@ class GraphModelTest {
 
     @Test
     void collectionFieldsAreImmutable() {
-        GraphSnapshot snapshot = new GraphSnapshot("repo", "sha", List.of(), List.of(), List.of(),
-                new GraphMetrics(0, 0, 0, 0));
+        GraphSnapshot snapshot =
+                new GraphSnapshot("repo", "sha", List.of(), List.of(), List.of(), new GraphMetrics(0, 0, 0, 0));
 
         assertThrows(UnsupportedOperationException.class, () -> snapshot.nodes().add(null));
     }

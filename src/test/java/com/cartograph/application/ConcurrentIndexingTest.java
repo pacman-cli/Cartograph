@@ -1,24 +1,22 @@
 package com.cartograph.application;
 
+import static java.util.concurrent.TimeUnit.SECONDS;
+import static org.assertj.core.api.Assertions.assertThat;
+
 import com.cartograph.graph.GraphBuilder;
 import com.cartograph.graph.model.GraphMetrics;
-import com.cartograph.graph.model.RepositoryRef;
 import com.cartograph.graph.model.GraphSnapshot;
+import com.cartograph.graph.model.RepositoryRef;
 import com.cartograph.graph.model.RepositorySnapshot;
 import com.cartograph.graph.model.SourceFile;
-import org.junit.jupiter.api.Test;
-
 import java.util.List;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
-import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
-import java.util.concurrent.ConcurrentHashMap;
-
-import static java.util.concurrent.TimeUnit.SECONDS;
-import static org.assertj.core.api.Assertions.assertThat;
+import org.junit.jupiter.api.Test;
 
 /** Same-commit concurrent indexing must fetch exactly once and never race the cache. */
 class ConcurrentIndexingTest {
@@ -45,8 +43,10 @@ class ConcurrentIndexingTest {
                 } catch (InterruptedException e) {
                     Thread.currentThread().interrupt();
                 }
-                return new RepositorySnapshot("acme/widgets", "sha-1", List.of(
-                        new SourceFile("src/App.ts", "export const x = 1;", "typescript")));
+                return new RepositorySnapshot(
+                        "acme/widgets",
+                        "sha-1",
+                        List.of(new SourceFile("src/App.ts", "export const x = 1;", "typescript")));
             }
         };
         SourceParser parser = file -> new com.cartograph.graph.model.ParsedFile(file.path(), List.of(), List.of());
@@ -93,7 +93,9 @@ class ConcurrentIndexingTest {
             GraphSnapshot b = second.get(5, SECONDS);
 
             assertThat(a).isSameAs(b);
-            assertThat(fetches.get()).as("exactly one upstream fetch for the same commit").isEqualTo(1);
+            assertThat(fetches.get())
+                    .as("exactly one upstream fetch for the same commit")
+                    .isEqualTo(1);
         } finally {
             pool.shutdownNow();
             pool.awaitTermination(5, SECONDS);

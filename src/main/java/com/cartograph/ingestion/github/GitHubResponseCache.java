@@ -5,7 +5,7 @@ import java.util.LinkedHashMap;
 
 /** Per-client LRU of validated wire bodies. No credentials appear in keys or persisted state. */
 final class GitHubResponseCache {
-    record Entry(byte[] body, String etag, long weight) { }
+    record Entry(byte[] body, String etag, long weight) {}
 
     private final int maxEntries;
     private final long maxBytes;
@@ -17,7 +17,9 @@ final class GitHubResponseCache {
         this.maxBytes = maxBytes;
     }
 
-    Entry get(String path) { return entries.get(path); }
+    Entry get(String path) {
+        return entries.get(path);
+    }
 
     void remove(String path) {
         Entry old = entries.remove(path);
@@ -27,7 +29,8 @@ final class GitHubResponseCache {
     void put(String path, byte[] body, String etag) {
         remove(path);
         if (maxEntries == 0 || etag == null || etag.isBlank() || etag.length() > 1024) return;
-        long weight = (long) body.length + path.getBytes(StandardCharsets.UTF_8).length
+        long weight = (long) body.length
+                + path.getBytes(StandardCharsets.UTF_8).length
                 + etag.getBytes(StandardCharsets.UTF_8).length;
         if (weight > maxBytes) return;
         while (entries.size() >= maxEntries || bytes > maxBytes - weight) {

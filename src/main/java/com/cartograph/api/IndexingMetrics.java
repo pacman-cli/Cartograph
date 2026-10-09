@@ -1,10 +1,9 @@
 package com.cartograph.api;
 
 import io.micrometer.core.instrument.MeterRegistry;
-import org.springframework.stereotype.Component;
-
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Supplier;
+import org.springframework.stereotype.Component;
 
 /**
  * Driving-adapter metrics for the indexing endpoint: request count and

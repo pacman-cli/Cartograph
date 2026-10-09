@@ -25,6 +25,7 @@ export JAVA_HOME=/opt/homebrew/opt/openjdk@17/libexec/openjdk.jdk/Contents/Home
 export PATH="$JAVA_HOME/bin:/opt/homebrew/bin:$PATH"
 
 mvn test          # full offline suite — must pass before any PR
+mvn spotless:apply   # format Java code before committing
 mvn spring-boot:run
 ```
 

@@ -1,26 +1,43 @@
 package com.cartograph;
 
-import org.junit.jupiter.api.Test;
-import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.core.env.Environment;
+import static org.assertj.core.api.Assertions.assertThat;
+
 import com.cartograph.ingestion.github.GitHubProperties;
 import com.cartograph.parsing.javascript.JavaScriptParserProperties;
 import javax.sql.DataSource;
-import static org.assertj.core.api.Assertions.assertThat;
+import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.core.env.Environment;
 
-@SpringBootTest(classes = CartographApplication.class, properties = {"spring.flyway.enabled=false", "cartograph.github.max-files=37",
-        "cartograph.parser.javascript.enabled=false", "GITHUB_TOKEN=offline-test-token",
-        "cartograph.github.max-attempts=5", "cartograph.github.retry-backoff-millis=100",
-        "cartograph.github.max-retry-sleep-millis=4000", "cartograph.github.connect-timeout-millis=1234",
-        "cartograph.github.read-timeout-millis=4567", "cartograph.github.cache-max-entries=7",
-        "cartograph.github.cache-max-bytes=4096"})
+@SpringBootTest(
+        classes = CartographApplication.class,
+        properties = {
+            "spring.flyway.enabled=false",
+            "cartograph.github.max-files=37",
+            "cartograph.parser.javascript.enabled=false",
+            "GITHUB_TOKEN=offline-test-token",
+            "cartograph.github.max-attempts=5",
+            "cartograph.github.retry-backoff-millis=100",
+            "cartograph.github.max-retry-sleep-millis=4000",
+            "cartograph.github.connect-timeout-millis=1234",
+            "cartograph.github.read-timeout-millis=4567",
+            "cartograph.github.cache-max-entries=7",
+            "cartograph.github.cache-max-bytes=4096"
+        })
 class CartographApplicationTests {
 
-    @Autowired Environment environment;
-    @Autowired GitHubProperties github;
-    @Autowired JavaScriptParserProperties parser;
-    @Autowired DataSource dataSource;
+    @Autowired
+    Environment environment;
+
+    @Autowired
+    GitHubProperties github;
+
+    @Autowired
+    JavaScriptParserProperties parser;
+
+    @Autowired
+    DataSource dataSource;
 
     @Test
     void contextLoads() {
@@ -66,10 +83,12 @@ class CartographApplicationTests {
     void parserDefaultRemainsEnabledWhenNoOverrideIsPresent() {
         new org.springframework.boot.test.context.runner.ApplicationContextRunner()
                 .withUserConfiguration(ParserBindingConfiguration.class)
-                .run(context -> assertThat(context.getBean(JavaScriptParserProperties.class).enabled()).isTrue());
+                .run(context -> assertThat(context.getBean(JavaScriptParserProperties.class)
+                                .enabled())
+                        .isTrue());
     }
 
     @org.springframework.context.annotation.Configuration(proxyBeanMethods = false)
     @org.springframework.boot.context.properties.EnableConfigurationProperties(JavaScriptParserProperties.class)
-    static class ParserBindingConfiguration { }
+    static class ParserBindingConfiguration {}
 }

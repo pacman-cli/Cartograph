@@ -1,9 +1,8 @@
 package com.cartograph.ingestion;
 
-import org.springframework.boot.context.properties.ConfigurationProperties;
-
 import java.util.ArrayList;
 import java.util.List;
+import org.springframework.boot.context.properties.ConfigurationProperties;
 
 /**
  * Popular-repository pre-warm (F0.49): repositories indexed at startup so
@@ -15,9 +14,18 @@ public class PrewarmProperties {
     private boolean enabled = false;
     private List<String> repositories = new ArrayList<>();
 
-    public boolean enabled() { return enabled; }
-    public List<String> repositories() { return repositories; }
-    public void setEnabled(boolean value) { enabled = value; }
+    public boolean enabled() {
+        return enabled;
+    }
+
+    public List<String> repositories() {
+        return repositories;
+    }
+
+    public void setEnabled(boolean value) {
+        enabled = value;
+    }
+
     public void setRepositories(List<String> value) {
         repositories = value == null ? new ArrayList<>() : value;
     }

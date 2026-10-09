@@ -1,12 +1,11 @@
 package com.cartograph.api;
 
+import java.time.Clock;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.web.servlet.config.annotation.InterceptorRegistry;
 import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
-
-import java.time.Clock;
 
 /** Registers the indexing-endpoint rate limiter. */
 @Configuration

@@ -1,21 +1,17 @@
 package com.cartograph.api;
 
-import com.cartograph.application.GraphSnapshotRepository;
 import com.cartograph.application.GraphSnapshotRepository.RepositorySummary;
 import com.cartograph.application.IndexRepositoryService;
 import com.cartograph.graph.model.GraphSnapshot;
 import jakarta.validation.Valid;
-
 import java.util.List;
-import java.util.Optional;
-
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 /** Exposes versioned HTTP endpoints for repository indexing. */
@@ -55,14 +51,17 @@ public final class IndexController {
         List<RepositorySummary> all = service.repositories();
         int safeLimit = Math.max(1, Math.min(limit, 100));
         int safeOffset = Math.max(0, offset);
-        List<RepositorySummary> page = all.stream().skip(safeOffset).limit(safeLimit).toList();
+        List<RepositorySummary> page =
+                all.stream().skip(safeOffset).limit(safeLimit).toList();
         return new RepositoryListResponse(page, all.size());
     }
 
     @GetMapping("/repositories/{owner}/{repo}")
     public ResponseEntity<GraphSnapshotResponse> snapshot(@PathVariable String owner, @PathVariable String repo) {
-        return service.snapshot(owner + "/" + repo).map(GraphSnapshotResponse::from)
+        return service.snapshot(owner + "/" + repo)
+                .map(GraphSnapshotResponse::from)
                 .map(ResponseEntity::ok)
-                .orElseThrow(() -> new ResourceNotFoundException("No indexed snapshot for " + owner + "/" + repo + "."));
+                .orElseThrow(
+                        () -> new ResourceNotFoundException("No indexed snapshot for " + owner + "/" + repo + "."));
     }
 }

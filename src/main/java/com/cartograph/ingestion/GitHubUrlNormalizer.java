@@ -1,7 +1,6 @@
 package com.cartograph.ingestion;
 
 import com.cartograph.graph.model.RepositoryRef;
-
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.nio.charset.StandardCharsets;
@@ -65,7 +64,9 @@ public final class GitHubUrlNormalizer {
     }
 
     private static String normalizeName(String value) {
-        if (value.isBlank() || hasTraversalSegment(value) || value.indexOf('/') >= 0
+        if (value.isBlank()
+                || hasTraversalSegment(value)
+                || value.indexOf('/') >= 0
                 || !value.matches("[A-Za-z0-9][A-Za-z0-9._-]*")) {
             throw new InvalidRepositoryUrlException("Repository name is unsafe");
         }
@@ -75,7 +76,8 @@ public final class GitHubUrlNormalizer {
     private static String normalizeRepository(String value) {
         String normalized = normalizeName(value);
         normalized = normalized.endsWith(".git") ? normalized.substring(0, normalized.length() - 4) : normalized;
-        if (normalized.isBlank() || normalized.equals(".") || normalized.equals(".git")) throw new InvalidRepositoryUrlException("Repository name is unsafe");
+        if (normalized.isBlank() || normalized.equals(".") || normalized.equals(".git"))
+            throw new InvalidRepositoryUrlException("Repository name is unsafe");
         return normalized;
     }
 

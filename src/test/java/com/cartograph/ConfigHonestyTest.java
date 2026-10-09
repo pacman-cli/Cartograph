@@ -1,6 +1,7 @@
 package com.cartograph;
 
-import org.junit.jupiter.api.Test;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -8,12 +9,9 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.regex.MatchResult;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import org.junit.jupiter.api.Test;
 
 /**
  * Keeps the README configuration table honest with {@code application.yml}:
@@ -38,22 +36,29 @@ class ConfigHonestyTest {
         Set<String> definedButUndocumented = new HashSet<>(defined);
         definedButUndocumented.removeAll(documented);
 
-        assertTrue(documentedButUndefined.isEmpty(),
+        assertTrue(
+                documentedButUndefined.isEmpty(),
                 "README documents cartograph.* keys that application.yml does not define: " + documentedButUndefined);
-        assertTrue(definedButUndocumented.isEmpty(),
-                "application.yml defines cartograph.* keys missing from the README config table: " + definedButUndocumented);
+        assertTrue(
+                definedButUndocumented.isEmpty(),
+                "application.yml defines cartograph.* keys missing from the README config table: "
+                        + definedButUndocumented);
     }
 
     @Test
     void readmeDefaultsMatchTheImplementation() throws Exception {
-        Map<String, String> defaults = readmeRows().entrySet().stream()
-                .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
+        Map<String, String> defaults =
+                readmeRows().entrySet().stream().collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
 
         assertEquals("10000", defaults.get("cartograph.github.max-files"), "cartograph.github.max-files");
         assertEquals("3", defaults.get("cartograph.github.max-attempts"), "cartograph.github.max-attempts");
-        assertEquals("250", defaults.get("cartograph.github.retry-backoff-millis"), "cartograph.github.retry-backoff-millis");
+        assertEquals(
+                "250",
+                defaults.get("cartograph.github.retry-backoff-millis"),
+                "cartograph.github.retry-backoff-millis");
         assertEquals("30", defaults.get("cartograph.ratelimit.capacity"), "cartograph.ratelimit.capacity");
-        assertEquals("60", defaults.get("cartograph.ratelimit.refill-per-minute"), "cartograph.ratelimit.refill-per-minute");
+        assertEquals(
+                "60", defaults.get("cartograph.ratelimit.refill-per-minute"), "cartograph.ratelimit.refill-per-minute");
     }
 
     private Set<String> readmeCartographKeys() throws Exception {
@@ -67,9 +72,7 @@ class ConfigHonestyTest {
                 .map(TABLE_KEY::matcher)
                 .filter(java.util.regex.Matcher::find)
                 .collect(Collectors.toUnmodifiableMap(
-                        m -> m.group(1),
-                        m -> m.group(2).replace("`", "").strip(),
-                        (a, b) -> a));
+                        m -> m.group(1), m -> m.group(2).replace("`", "").strip(), (a, b) -> a));
     }
 
     /** Dotted keys under the top-level {@code cartograph:} block (two-space indentation). */

@@ -1,22 +1,21 @@
 package com.cartograph.ingestion.github;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.cartograph.graph.model.RepositoryRef;
-import org.springframework.http.HttpHeaders;
-import org.springframework.web.client.RestClient;
-import org.springframework.web.client.ResourceAccessException;
-import org.springframework.http.client.JdkClientHttpRequestFactory;
-
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import java.io.IOException;
 import java.io.InputStream;
-import java.nio.charset.StandardCharsets;
 import java.net.http.HttpClient;
+import java.nio.charset.StandardCharsets;
 import java.time.Clock;
 import java.time.Duration;
 import java.util.Base64;
 import java.util.List;
 import java.util.Locale;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.client.JdkClientHttpRequestFactory;
+import org.springframework.web.client.ResourceAccessException;
+import org.springframework.web.client.RestClient;
 
 /** Small typed boundary around the GitHub REST API. DTOs intentionally stay adapter-local. */
 public class GitHubClient {
@@ -39,8 +38,12 @@ public class GitHubClient {
         this(builder, mapper, properties, Clock.systemUTC(), Thread::sleep);
     }
 
-    public GitHubClient(RestClient.Builder builder, ObjectMapper mapper, GitHubProperties properties,
-                        Clock clock, Sleeper sleeper) {
+    public GitHubClient(
+            RestClient.Builder builder,
+            ObjectMapper mapper,
+            GitHubProperties properties,
+            Clock clock,
+            Sleeper sleeper) {
         this(configuredClient(builder, properties), mapper, properties, clock, sleeper);
     }
 
@@ -49,8 +52,8 @@ public class GitHubClient {
     }
 
     /** A supplied RestClient owns its transport timeouts; the builder overload configures them. */
-    public GitHubClient(RestClient http, ObjectMapper mapper, GitHubProperties properties,
-                        Clock clock, Sleeper sleeper) {
+    public GitHubClient(
+            RestClient http, ObjectMapper mapper, GitHubProperties properties, Clock clock, Sleeper sleeper) {
         this.http = http;
         this.mapper = mapper;
         this.properties = properties;
@@ -62,28 +65,54 @@ public class GitHubClient {
 
     private static RestClient configuredClient(RestClient.Builder builder, GitHubProperties properties) {
         var transport = HttpClient.newBuilder()
-                .connectTimeout(Duration.ofMillis(properties.connectTimeoutMillis())).build();
+                .connectTimeout(Duration.ofMillis(properties.connectTimeoutMillis()))
+                .build();
         var factory = new JdkClientHttpRequestFactory(transport);
         factory.setReadTimeout(Duration.ofMillis(properties.readTimeoutMillis()));
-        return builder.clone().requestFactory(factory).baseUrl(properties.baseUrl().toString()).build();
+        return builder.clone()
+                .requestFactory(factory)
+                .baseUrl(properties.baseUrl().toString())
+                .build();
     }
 
-    public Response<RepositoryDto> repository(RepositoryRef ref) { return repository(ref, null); }
+    public Response<RepositoryDto> repository(RepositoryRef ref) {
+        return repository(ref, null);
+    }
+
     public Response<RepositoryDto> repository(RepositoryRef ref, String etag) {
-        return get("/repos/" + ref.owner() + "/" + ref.repository(), RepositoryDto.class, etag, properties.maxResponseBytes());
+        return get(
+                "/repos/" + ref.owner() + "/" + ref.repository(),
+                RepositoryDto.class,
+                etag,
+                properties.maxResponseBytes());
     }
 
     public Response<CommitDto> commit(RepositoryRef ref, String requestedRef) {
-        return get("/repos/" + ref.owner() + "/" + ref.repository() + "/commits/" + encodePath(requestedRef), CommitDto.class, null, properties.maxResponseBytes());
+        return get(
+                "/repos/" + ref.owner() + "/" + ref.repository() + "/commits/" + encodePath(requestedRef),
+                CommitDto.class,
+                null,
+                properties.maxResponseBytes());
     }
 
     public Response<TreeDto> tree(RepositoryRef ref, String sha) {
-        return get("/repos/" + ref.owner() + "/" + ref.repository() + "/git/trees/" + encodePath(sha) + "?recursive=1", TreeDto.class, null, properties.maxResponseBytes());
+        return get(
+                "/repos/" + ref.owner() + "/" + ref.repository() + "/git/trees/" + encodePath(sha) + "?recursive=1",
+                TreeDto.class,
+                null,
+                properties.maxResponseBytes());
     }
 
     public Response<ContentDto> content(RepositoryRef ref, String path, String sha, String etag) {
-        long encodedContentLimit = Math.min(properties.maxResponseBytes(), encodedContentLimit(properties.limits().maxFileBytes()));
-        return get("/repos/" + ref.owner() + "/" + ref.repository() + "/contents/" + encodePath(path) + "?ref=" + encodePath(sha), ContentDto.class, etag, encodedContentLimit);
+        long encodedContentLimit = Math.min(
+                properties.maxResponseBytes(),
+                encodedContentLimit(properties.limits().maxFileBytes()));
+        return get(
+                "/repos/" + ref.owner() + "/" + ref.repository() + "/contents/" + encodePath(path) + "?ref="
+                        + encodePath(sha),
+                ContentDto.class,
+                etag,
+                encodedContentLimit);
     }
 
     // Serial requests avoid amplifying secondary limits and protect the LRU.
@@ -103,7 +132,8 @@ public class GitHubClient {
             } catch (ResourceAccessException exception) {
                 long delay = GitHubRetryPolicy.exponential(properties.retryBackoffMillis(), attempt);
                 if (attempt >= properties.maxAttempts() || delay > properties.maxRetrySleepMillis() - slept) {
-                    throw new GitHubFetchException(GitHubFetchException.Kind.UPSTREAM, 0, "GitHub transport request failed");
+                    throw new GitHubFetchException(
+                            GitHubFetchException.Kind.UPSTREAM, 0, "GitHub transport request failed");
                 }
                 pause(delay);
                 slept += delay;
@@ -120,41 +150,70 @@ public class GitHubClient {
         }
     }
 
-    private <T> Response<T> exchange(String path, Class<T> type, String etag, long responseLimit,
-                                    GitHubResponseCache.Entry cached, int attempt) {
-        return http.get().uri(path).headers(headers -> {
-            headers.set(HttpHeaders.ACCEPT, "application/vnd.github+json");
-            headers.set(HttpHeaders.USER_AGENT, "Cartograph");
-            if (!token.isBlank()) headers.setBearerAuth(token);
-            if (etag != null && !etag.isBlank()) headers.set(HttpHeaders.IF_NONE_MATCH, etag);
-        }).exchange((request, response) -> {
-            int status = response.getStatusCode().value();
-            String responseEtag = response.getHeaders().getFirst(HttpHeaders.ETAG);
-            if (status == 304) {
-                if (cached != null && cached.etag().equals(etag) && cached.body().length <= responseLimit) {
-                    return new Response<>(decode(cached.body(), type, status), cached.etag());
-                }
-                throw new GitHubFetchException(GitHubFetchException.Kind.NOT_MODIFIED, status, "GitHub response was not modified without a matching cached body");
-            }
-            if (status == 404) throw new GitHubFetchException(GitHubFetchException.Kind.NOT_FOUND, status, "GitHub resource was not found");
-            boolean rateLimited = status == 429 || (status == 403 &&
-                    (isRateLimited403(response.getHeaders()) || secondaryLimitBody(response.getBody())));
-            if (rateLimited || status >= 500) {
-                var kind = rateLimited ? GitHubFetchException.Kind.RATE_LIMITED : GitHubFetchException.Kind.UPSTREAM;
-                var error = new GitHubFetchException(kind, status,
-                        rateLimited ? "GitHub API rate limit exceeded" : "GitHub API returned HTTP " + status);
-                throw new Retryable(error, GitHubRetryPolicy.delayMillis(response.getHeaders(), rateLimited,
-                        attempt, properties.retryBackoffMillis(), clock));
-            }
-            if (status == 403) {
-                throw new GitHubFetchException(GitHubFetchException.Kind.FORBIDDEN, status, "GitHub API permission denied");
-            }
-            if (status < 200 || status >= 300) throw new GitHubFetchException(GitHubFetchException.Kind.UPSTREAM, status, "GitHub API returned HTTP " + status);
-            byte[] bytes = readBounded(response.getBody(), response.getHeaders().getContentLength(), responseLimit);
-            T body = decode(bytes, type, status);
-            cache.put(path, bytes, responseEtag);
-            return new Response<>(body, responseEtag);
-        });
+    private <T> Response<T> exchange(
+            String path,
+            Class<T> type,
+            String etag,
+            long responseLimit,
+            GitHubResponseCache.Entry cached,
+            int attempt) {
+        return http.get()
+                .uri(path)
+                .headers(headers -> {
+                    headers.set(HttpHeaders.ACCEPT, "application/vnd.github+json");
+                    headers.set(HttpHeaders.USER_AGENT, "Cartograph");
+                    if (!token.isBlank()) headers.setBearerAuth(token);
+                    if (etag != null && !etag.isBlank()) headers.set(HttpHeaders.IF_NONE_MATCH, etag);
+                })
+                .exchange((request, response) -> {
+                    int status = response.getStatusCode().value();
+                    String responseEtag = response.getHeaders().getFirst(HttpHeaders.ETAG);
+                    if (status == 304) {
+                        if (cached != null && cached.etag().equals(etag) && cached.body().length <= responseLimit) {
+                            return new Response<>(decode(cached.body(), type, status), cached.etag());
+                        }
+                        throw new GitHubFetchException(
+                                GitHubFetchException.Kind.NOT_MODIFIED,
+                                status,
+                                "GitHub response was not modified without a matching cached body");
+                    }
+                    if (status == 404)
+                        throw new GitHubFetchException(
+                                GitHubFetchException.Kind.NOT_FOUND, status, "GitHub resource was not found");
+                    boolean rateLimited = status == 429
+                            || (status == 403
+                                    && (isRateLimited403(response.getHeaders())
+                                            || secondaryLimitBody(response.getBody())));
+                    if (rateLimited || status >= 500) {
+                        var kind = rateLimited
+                                ? GitHubFetchException.Kind.RATE_LIMITED
+                                : GitHubFetchException.Kind.UPSTREAM;
+                        var error = new GitHubFetchException(
+                                kind,
+                                status,
+                                rateLimited ? "GitHub API rate limit exceeded" : "GitHub API returned HTTP " + status);
+                        throw new Retryable(
+                                error,
+                                GitHubRetryPolicy.delayMillis(
+                                        response.getHeaders(),
+                                        rateLimited,
+                                        attempt,
+                                        properties.retryBackoffMillis(),
+                                        clock));
+                    }
+                    if (status == 403) {
+                        throw new GitHubFetchException(
+                                GitHubFetchException.Kind.FORBIDDEN, status, "GitHub API permission denied");
+                    }
+                    if (status < 200 || status >= 300)
+                        throw new GitHubFetchException(
+                                GitHubFetchException.Kind.UPSTREAM, status, "GitHub API returned HTTP " + status);
+                    byte[] bytes = readBounded(
+                            response.getBody(), response.getHeaders().getContentLength(), responseLimit);
+                    T body = decode(bytes, type, status);
+                    cache.put(path, bytes, responseEtag);
+                    return new Response<>(body, responseEtag);
+                });
     }
 
     private <T> T decode(byte[] bytes, Class<T> type, int status) {
@@ -181,8 +240,10 @@ public class GitHubClient {
                 if (entry == null) throw new IllegalArgumentException();
                 requireText(entry.path());
                 requireText(entry.sha());
-                if (!List.of("blob", "tree", "commit").contains(entry.type() == null ? "" : entry.type())) throw new IllegalArgumentException();
-                if (("blob".equals(entry.type()) && entry.size() == null) || (entry.size() != null && entry.size() < 0)) throw new IllegalArgumentException();
+                if (!List.of("blob", "tree", "commit").contains(entry.type() == null ? "" : entry.type()))
+                    throw new IllegalArgumentException();
+                if (("blob".equals(entry.type()) && entry.size() == null) || (entry.size() != null && entry.size() < 0))
+                    throw new IllegalArgumentException();
             }
         } else if (body instanceof ContentDto content) {
             content.decodedBytes();
@@ -219,24 +280,27 @@ public class GitHubClient {
 
     private static byte[] readBounded(InputStream body, long contentLength, long maxBytes) throws IOException {
         if (maxBytes <= 0) throw new IllegalArgumentException("Maximum response size must be positive");
-        if (contentLength > maxBytes) throw new GitHubFetchException(GitHubFetchException.Kind.UPSTREAM, 413,
-                "GitHub response exceeded the configured response limit");
+        if (contentLength > maxBytes)
+            throw new GitHubFetchException(
+                    GitHubFetchException.Kind.UPSTREAM, 413, "GitHub response exceeded the configured response limit");
         java.io.ByteArrayOutputStream output = new java.io.ByteArrayOutputStream((int) Math.min(maxBytes, 8192));
         byte[] buffer = new byte[8192];
         long total = 0;
         int read;
         while ((read = body.read(buffer)) != -1) {
             total += read;
-            if (total > maxBytes) throw new GitHubFetchException(GitHubFetchException.Kind.UPSTREAM, 413,
-                    "GitHub response exceeded the configured response limit");
+            if (total > maxBytes)
+                throw new GitHubFetchException(
+                        GitHubFetchException.Kind.UPSTREAM,
+                        413,
+                        "GitHub response exceeded the configured response limit");
             output.write(buffer, 0, read);
         }
         return output.toByteArray();
     }
 
     private static boolean isRateLimited403(HttpHeaders headers) {
-        return "0".equals(headers.getFirst("X-RateLimit-Remaining"))
-                || headers.containsKey("Retry-After");
+        return "0".equals(headers.getFirst("X-RateLimit-Remaining")) || headers.containsKey("Retry-After");
     }
 
     private boolean secondaryLimitBody(InputStream body) throws IOException {
@@ -244,7 +308,8 @@ public class GitHubClient {
         byte[] bytes = body.readNBytes((int) Math.min(properties.maxResponseBytes(), 16_384));
         try {
             String message = mapper.readTree(bytes).path("message").asText("").toLowerCase(Locale.ROOT);
-            return message.contains("secondary rate limit") || message.contains("abuse detection")
+            return message.contains("secondary rate limit")
+                    || message.contains("abuse detection")
                     || message.contains("api rate limit exceeded");
         } catch (IOException | RuntimeException exception) {
             return false;
@@ -252,7 +317,9 @@ public class GitHubClient {
     }
 
     private static String encodePath(String value) {
-        return java.net.URLEncoder.encode(value, StandardCharsets.UTF_8).replace("+", "%20").replace("%2F", "/");
+        return java.net.URLEncoder.encode(value, StandardCharsets.UTF_8)
+                .replace("+", "%20")
+                .replace("%2F", "/");
     }
 
     /**
@@ -262,23 +329,23 @@ public class GitHubClient {
      * @param body decoded response body
      * @param etag entity tag that can be reused for a conditional request
      */
-    public record Response<T>(T body, String etag) { }
+    public record Response<T>(T body, String etag) {}
 
     /** Repository metadata returned by GitHub, including its default branch name. */
     @JsonIgnoreProperties(ignoreUnknown = true)
-    public record RepositoryDto(String default_branch) { }
+    public record RepositoryDto(String default_branch) {}
 
     /** Commit metadata returned by GitHub, including the resolved commit SHA. */
     @JsonIgnoreProperties(ignoreUnknown = true)
-    public record CommitDto(String sha) { }
+    public record CommitDto(String sha) {}
 
     /** Recursive Git tree response, including GitHub's truncation flag and returned entries. */
     @JsonIgnoreProperties(ignoreUnknown = true)
-    public record TreeDto(Boolean truncated, List<TreeEntry> tree) { }
+    public record TreeDto(Boolean truncated, List<TreeEntry> tree) {}
 
     /** Git tree item with a path, object type, optional size, and object SHA. */
     @JsonIgnoreProperties(ignoreUnknown = true)
-    public record TreeEntry(String path, String type, Long size, String sha) { }
+    public record TreeEntry(String path, String type, Long size, String sha) {}
 
     /**
      * Base64-encoded GitHub file-content response.
@@ -298,7 +365,8 @@ public class GitHubClient {
          */
         public byte[] decodedBytes() {
             if (!"file".equals(type) || !"base64".equals(encoding) || content == null || size == null || size < 0) {
-                throw new GitHubFetchException(GitHubFetchException.Kind.UPSTREAM, 200, "Invalid GitHub content metadata");
+                throw new GitHubFetchException(
+                        GitHubFetchException.Kind.UPSTREAM, 200, "Invalid GitHub content metadata");
             }
             try {
                 // GitHub wraps base64 with newlines; reject other characters rather than silently dropping them.
@@ -308,13 +376,15 @@ public class GitHubClient {
                     throw new IllegalArgumentException();
                 }
                 // Decode strictly so replacement characters can never enter a snapshot.
-                StandardCharsets.UTF_8.newDecoder()
+                StandardCharsets.UTF_8
+                        .newDecoder()
                         .onMalformedInput(java.nio.charset.CodingErrorAction.REPORT)
                         .onUnmappableCharacter(java.nio.charset.CodingErrorAction.REPORT)
                         .decode(java.nio.ByteBuffer.wrap(bytes));
                 return bytes;
             } catch (java.io.IOException | IllegalArgumentException exception) {
-                throw new GitHubFetchException(GitHubFetchException.Kind.UPSTREAM, 200, "Invalid base64 or UTF-8 GitHub content");
+                throw new GitHubFetchException(
+                        GitHubFetchException.Kind.UPSTREAM, 200, "Invalid base64 or UTF-8 GitHub content");
             }
         }
 

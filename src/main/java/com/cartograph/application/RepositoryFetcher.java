@@ -24,7 +24,8 @@ public interface RepositoryFetcher {
             throw new IllegalArgumentException("Resolved commit must not be blank");
         }
         RepositorySnapshot snapshot = fetch(new RepositoryRef(ref.owner(), ref.repository(), commitSha));
-        if (snapshot == null || !commitSha.equals(snapshot.commitSha())
+        if (snapshot == null
+                || !commitSha.equals(snapshot.commitSha())
                 || !ref.coordinate().equals(snapshot.repository())) {
             throw new IllegalStateException("Fetched repository does not match the resolved commit");
         }

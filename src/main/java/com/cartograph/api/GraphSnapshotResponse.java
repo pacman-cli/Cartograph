@@ -5,7 +5,6 @@ import com.cartograph.graph.model.GraphMetrics;
 import com.cartograph.graph.model.GraphNode;
 import com.cartograph.graph.model.GraphSnapshot;
 import com.cartograph.graph.model.GraphWarning;
-
 import java.util.List;
 
 /**
@@ -18,8 +17,13 @@ import java.util.List;
  * @param warnings parser or indexing diagnostics associated with the snapshot
  * @param metrics counts describing the indexing result
  */
-public record GraphSnapshotResponse(String repository, String commitSha, List<GraphNode> nodes,
-        List<GraphEdge> edges, List<GraphWarning> warnings, Metrics metrics) {
+public record GraphSnapshotResponse(
+        String repository,
+        String commitSha,
+        List<GraphNode> nodes,
+        List<GraphEdge> edges,
+        List<GraphWarning> warnings,
+        Metrics metrics) {
     /**
      * Creates the API response from the completed domain snapshot.
      *
@@ -27,8 +31,13 @@ public record GraphSnapshotResponse(String repository, String commitSha, List<Gr
      * @return response containing the snapshot data and API metrics
      */
     public static GraphSnapshotResponse from(GraphSnapshot snapshot) {
-        return new GraphSnapshotResponse(snapshot.repository(), snapshot.commitSha(), snapshot.nodes(),
-                snapshot.edges(), snapshot.warnings(), Metrics.from(snapshot.metrics()));
+        return new GraphSnapshotResponse(
+                snapshot.repository(),
+                snapshot.commitSha(),
+                snapshot.nodes(),
+                snapshot.edges(),
+                snapshot.warnings(),
+                Metrics.from(snapshot.metrics()));
     }
 
     /**

@@ -20,8 +20,11 @@ public record IndexingLimits(long maxFileCount, long maxTotalBytes, long maxFile
         for (Long size : fileSizes) {
             if (size == null || size < 0) throw new IllegalArgumentException("File sizes must be non-negative");
             if (size > maxFileBytes) throw new RepositoryLimitException(Limit.FILE_BYTES, size, maxFileBytes);
-            try { total = Math.addExact(total, size); }
-            catch (ArithmeticException exception) { throw new RepositoryLimitException(Limit.TOTAL_BYTES, Long.MAX_VALUE, maxTotalBytes); }
+            try {
+                total = Math.addExact(total, size);
+            } catch (ArithmeticException exception) {
+                throw new RepositoryLimitException(Limit.TOTAL_BYTES, Long.MAX_VALUE, maxTotalBytes);
+            }
         }
         if (total > maxTotalBytes) throw new RepositoryLimitException(Limit.TOTAL_BYTES, total, maxTotalBytes);
     }
@@ -35,7 +38,8 @@ public record IndexingLimits(long maxFileCount, long maxTotalBytes, long maxFile
         if (largestFileBytes > maxFileBytes) {
             throw new RepositoryLimitException(Limit.FILE_BYTES, largestFileBytes, maxFileBytes);
         }
-        if (totalBytes > maxTotalBytes) throw new RepositoryLimitException(Limit.TOTAL_BYTES, totalBytes, maxTotalBytes);
+        if (totalBytes > maxTotalBytes)
+            throw new RepositoryLimitException(Limit.TOTAL_BYTES, totalBytes, maxTotalBytes);
     }
 
     /** Validate the actual decoded bytes returned for one content response. */
@@ -63,5 +67,9 @@ public record IndexingLimits(long maxFileCount, long maxTotalBytes, long maxFile
     }
 
     /** Identifies the file-count, cumulative-byte, or single-file-byte limit that was exceeded. */
-    public enum Limit { FILE_COUNT, TOTAL_BYTES, FILE_BYTES }
+    public enum Limit {
+        FILE_COUNT,
+        TOTAL_BYTES,
+        FILE_BYTES
+    }
 }
