@@ -17,6 +17,24 @@ mvn spring-boot:run
 mvn test
 ```
 
+For the complete local verification gate, use Java 17 and run:
+
+```bash
+export JAVA_HOME=/opt/homebrew/opt/openjdk@17/libexec/openjdk.jdk/Contents/Home
+export PATH="$JAVA_HOME/bin:/opt/homebrew/bin:$PATH"
+mvn validate
+mvn test
+mvn javadoc:javadoc
+git diff --check
+```
+
+The offline suite does not require GitHub access or a token. Shallow-clone fallback
+tests use the local `git` executable and temporary repositories. Clone mode is
+enabled by default for a tree at or above 10,000 files or a truncated tree; it is
+bounded to a 120-second clone/checkout timeout and a 10-second cleanup timeout,
+and can be disabled with `cartograph.github.clone.enabled=false`. With fallback
+disabled, a required clone path fails instead of indexing partial tree data.
+
 The HTTP endpoint is `POST /api/v1/index` with a JSON `repositoryUrl`. SQLite persists snapshots at `./data/cartograph.db` by default; set `cartograph.sqlite.path` to override it.
 
 ## Source of truth

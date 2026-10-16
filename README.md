@@ -30,7 +30,7 @@ Understanding an unfamiliar repository should start with the source. Cartograph 
 - **Bounded ingestion.** File-count, content-byte, and response-size limits reject oversized inputs; retries and timeouts bound individual upstream operations.
 - **An honest, open roadmap.** 90+ planned features tracked wave by wave in public. We're at the beginning — perfect time to join.
 
-> **Status:** backend walking skeleton on `main` — 63 tests green, and the first live index of a public repository already works (`sindresorhus/is` → 242 nodes, 487 edges). In flight: GitHub client resilience — bounded retries, timeouts, ETag reuse, SHA-pinned fetches (feature F0.08). The graph viewer UI and async jobs are the next waves. See [Roadmap](#-roadmap).
+> **Status:** backend walking skeleton on `main` — 274 offline tests green, and the first live index of a public repository already works (`sindresorhus/is` → 242 nodes, 487 edges). In flight: GitHub client resilience (F0.08) and its bounded shallow-clone fallback (F0.09). The graph viewer UI and async jobs are the next waves. See [Roadmap](#-roadmap).
 
 ## ⚡ Quickstart
 
@@ -140,6 +140,7 @@ Only a JDK 17 and Maven are required — SQLite is embedded, nothing else to ins
 | `cartograph.github.read-timeout-millis` | `15000` | HTTP read timeout (ms) |
 | `cartograph.github.cache-max-entries` | `256` | Max entries in the GitHub response cache |
 | `cartograph.github.cache-max-bytes` | `16777216` (16 MiB) | Max response-cache bytes |
+| `cartograph.github.clone` | `enabled=true; file-threshold=10000; timeout-seconds=120; cleanup-timeout-seconds=10; executable=git` | Shallow-clone fallback settings; see the ingestion flow below |
 | `cartograph.ratelimit.enabled` | `true` | Per-client rate limiting on `POST /api/v1/index` |
 | `cartograph.ratelimit.capacity` | `30` | Burst capacity of the per-client token bucket |
 | `cartograph.ratelimit.refill-per-minute` | `60` | Tokens refilled per minute per client |
@@ -204,7 +205,7 @@ Every error uses a stable `{ "code": "...", "message": "..." }` body (full catal
 <img src="docs/assets/pipeline.svg" alt="Indexing pipeline: URL in → fetch → parse → resolve → snapshot → graph out" width="100%"/>
 
 1. **URL in** — accept `https://github.com/owner/repo` or `/tree/{ref}` URLs. Everything after `/tree/` is interpreted as the ref, including slashes; it is not a subdirectory selector.
-2. **Fetch** — the repository tree and sources are pulled from the GitHub API inside hard size caps, with retry and response caching.
+2. **Fetch** — small repositories use the GitHub tree and contents APIs inside hard size caps, with retry and response caching. At or above `cartograph.github.clone.file-threshold`, or when GitHub reports a truncated tree, the enabled fallback runs a shallow `git clone --depth 1 --no-tags --single-branch`, checks out and verifies the resolved commit SHA, walks bounded supported files, and removes its temporary workspace. Clone and checkout processes have hard timeouts; clone mode requires a local Git executable. If clone mode is disabled for a required fallback, indexing fails rather than using partial tree data.
 3. **Parse** — tree-sitter walks each JS/TS/TSX file into an AST.
 4. **Resolve** — symbols and call sites are extracted and normalized into stable node IDs.
 5. **Snapshot** — the graph is persisted to SQLite, keyed by commit SHA.
