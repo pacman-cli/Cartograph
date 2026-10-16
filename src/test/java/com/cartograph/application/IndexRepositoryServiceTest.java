@@ -3,6 +3,7 @@ package com.cartograph.application;
 import com.cartograph.graph.GraphBuilder;
 import com.cartograph.graph.model.*;
 import com.cartograph.ingestion.GitHubUrlNormalizer;
+import com.cartograph.ingestion.github.RepositorySourceFetcher;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
@@ -92,6 +93,24 @@ class IndexRepositoryServiceTest {
         order.verify(fetcher).fetchResolved(ref, "sha");
         order.verify(repository).save(built);
         verifyNoMoreInteractions(fetcher);
+    }
+
+    @Test
+    void sourceStrategyReceivesTheResolvedShaOnlyAfterCacheMiss() {
+        RepositoryFetcher resolver = mock(RepositoryFetcher.class);
+        RepositorySourceFetcher source = mock(RepositorySourceFetcher.class);
+        GraphSnapshotRepository repository = mock(GraphSnapshotRepository.class);
+        when(resolver.resolveCommit(ref)).thenReturn("sha");
+        when(repository.find(ref.coordinate(), "sha")).thenReturn(Optional.empty());
+        when(source.fetch(ref, "sha")).thenReturn(new RepositorySnapshot(ref.coordinate(), "sha", List.of()));
+        IndexRepositoryService service = new IndexRepositoryService(new GitHubUrlNormalizer(), resolver, source,
+                repository, new GraphBuilder(file -> new ParsedFile(file.path(), List.of(), List.of())));
+
+        service.index(ref);
+
+        verify(source).fetch(ref, "sha");
+        verify(resolver).resolveCommit(ref);
+        verify(resolver, never()).fetchResolved(any(), any());
     }
 
     private static GraphSnapshot snapshot(String sha) {

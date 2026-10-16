@@ -5,9 +5,11 @@ import com.cartograph.graph.model.GraphSnapshot;
 import com.cartograph.graph.model.RepositoryRef;
 import com.cartograph.graph.model.RepositorySnapshot;
 import com.cartograph.ingestion.GitHubUrlNormalizer;
+import com.cartograph.ingestion.github.RepositorySourceFetcher;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
+import org.springframework.beans.factory.annotation.Autowired;
 
 import java.util.List;
 import java.util.Objects;
@@ -20,6 +22,7 @@ public final class IndexRepositoryService {
     private static final Logger LOG = LoggerFactory.getLogger(IndexRepositoryService.class);
     private final GitHubUrlNormalizer normalizer;
     private final RepositoryFetcher fetcher;
+    private final RepositorySourceFetcher sourceFetcher;
     private final GraphSnapshotRepository snapshots;
     private final GraphBuilder graphBuilder;
     /**
@@ -35,10 +38,17 @@ public final class IndexRepositoryService {
      * @param snapshots stores and retrieves completed graph snapshots
      * @param graphBuilder builds a graph from a fetched repository snapshot
      */
+    @Autowired
     public IndexRepositoryService(GitHubUrlNormalizer normalizer, RepositoryFetcher fetcher,
             GraphSnapshotRepository snapshots, GraphBuilder graphBuilder) {
+        this(normalizer, fetcher, fetcher::fetchResolved, snapshots, graphBuilder);
+    }
+
+    public IndexRepositoryService(GitHubUrlNormalizer normalizer, RepositoryFetcher fetcher,
+            RepositorySourceFetcher sourceFetcher, GraphSnapshotRepository snapshots, GraphBuilder graphBuilder) {
         this.normalizer = Objects.requireNonNull(normalizer);
         this.fetcher = Objects.requireNonNull(fetcher);
+        this.sourceFetcher = Objects.requireNonNull(sourceFetcher);
         this.snapshots = Objects.requireNonNull(snapshots);
         this.graphBuilder = Objects.requireNonNull(graphBuilder);
     }
@@ -67,7 +77,7 @@ public final class IndexRepositoryService {
             String commit = fetcher.resolveCommit(ref);
             var cached = snapshots.find(ref.coordinate(), commit);
             GraphSnapshot result = cached.orElseGet(() -> {
-                RepositorySnapshot fetched = fetcher.fetchResolved(ref, commit);
+                RepositorySnapshot fetched = sourceFetcher.fetch(ref, commit);
                 if (fetched == null || !Objects.equals(commit, fetched.commitSha())
                         || !ref.coordinate().equals(fetched.repository())) {
                     throw new IllegalStateException("Fetched repository does not match the resolved commit");
