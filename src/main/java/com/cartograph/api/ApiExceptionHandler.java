@@ -3,6 +3,7 @@ package com.cartograph.api;
 import com.cartograph.ingestion.RepositoryLimitException;
 import com.cartograph.ingestion.InvalidRepositoryUrlException;
 import com.cartograph.ingestion.github.GitHubFetchException;
+import com.cartograph.ingestion.github.CloneFailureException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
@@ -40,6 +41,22 @@ public final class ApiExceptionHandler {
             case NOT_MODIFIED, UPSTREAM -> HttpStatus.BAD_GATEWAY;
         };
         return response(status, "UPSTREAM_GITHUB_ERROR", "Unable to access the GitHub repository.");
+    }
+
+    @ExceptionHandler(CloneFailureException.class)
+    ResponseEntity<ApiErrorResponse> clone(CloneFailureException exception) {
+        return switch (exception.kind()) {
+            case CLONE_UNAVAILABLE -> response(HttpStatus.SERVICE_UNAVAILABLE, "CLONE_UNAVAILABLE",
+                    "Repository clone is unavailable.");
+            case CLONE_TIMEOUT -> response(HttpStatus.GATEWAY_TIMEOUT, "CLONE_TIMEOUT",
+                    "Repository clone timed out.");
+            case CLONE_FAILED -> response(HttpStatus.BAD_GATEWAY, "CLONE_FAILED",
+                    "Repository clone failed.");
+            case CLONE_COMMIT_MISMATCH -> response(HttpStatus.BAD_GATEWAY, "CLONE_COMMIT_MISMATCH",
+                    "Repository clone could not verify the requested revision.");
+            case CLONE_DISABLED -> response(HttpStatus.SERVICE_UNAVAILABLE, "CLONE_DISABLED",
+                    "Repository clone fallback is disabled.");
+        };
     }
 
     @ExceptionHandler(RateLimitExceededException.class)

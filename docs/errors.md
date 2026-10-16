@@ -15,6 +15,11 @@ treat an unknown code per its HTTP status (4xx = fix the request or back off,
 | `UPSTREAM_GITHUB_ERROR` | 502 | GitHub returned an unusable or unexpected response | Retry with backoff; report if persistent |
 | `REPOSITORY_LIMIT_EXCEEDED` | 413 | Repository exceeds the configured caps (`max-files`, `max-total-bytes`, `max-file-bytes`, `max-response-bytes`) | Use a smaller repository or raise the caps deliberately |
 | `RATE_LIMIT_EXCEEDED` | 429 | **You** exceeded Cartograph's per-client indexing rate limit (`Retry-After` header is set) | Wait the indicated seconds, then retry |
+| `CLONE_FAILED` | 502 | The shallow clone or checkout failed | Retry with backoff; report if persistent |
+| `CLONE_COMMIT_MISMATCH` | 502 | The clone did not verify the requested commit | Retry once; report if persistent |
+| `CLONE_UNAVAILABLE` | 503 | The local Git executable or clone workspace is unavailable | Retry later; check server prerequisites |
+| `CLONE_DISABLED` | 503 | The required clone fallback is disabled | Enable clone fallback or use a smaller repository |
+| `CLONE_TIMEOUT` | 504 | The shallow clone or checkout exceeded its timeout | Retry later; check repository size or server limits |
 | `IDEMPOTENCY_CONFLICT` | 409 | The same `Idempotency-Key` was reused with a different request body | Send a fresh key, or resend the original body |
 | `INTERNAL_ERROR` | 500 | Unexpected server failure; the body never contains exception details | Retry later; check server logs for the `correlationId` when present |
 

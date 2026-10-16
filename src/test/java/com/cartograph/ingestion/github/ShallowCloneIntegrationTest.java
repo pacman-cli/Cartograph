@@ -107,30 +107,34 @@ class ShallowCloneIntegrationTest {
     void routesDeterministicLargeRepositoryToCloneWithoutWalkingFiles() throws Exception {
         assumeGitAvailable();
         Path repository = Files.createTempDirectory("cartograph-large-repo-");
-        initialize(repository);
-        for (int index = 0; index < 10_001; index++) {
-            Files.writeString(repository.resolve(String.format("file-%05d.js", index)), "export const value = 1;\n");
+        try {
+            initialize(repository);
+            for (int index = 0; index < 10_001; index++) {
+                Files.writeString(repository.resolve(String.format("file-%05d.js", index)), "export const value = 1;\n");
+            }
+            runGit(repository, "add", ".");
+            runGit(repository, "commit", "--quiet", "-m", "large fixture");
+
+            CloneProperties properties = new CloneProperties();
+            properties.setFileThreshold(10_000);
+            AtomicReference<String> selected = new AtomicReference<>();
+            RepositorySourceFetcher clone = (ref, sha) -> {
+                selected.set("clone");
+                return new RepositorySnapshot(ref.coordinate(), sha, List.of());
+            };
+            RepositorySourceFetcher rest = (ref, sha) -> {
+                selected.set("rest");
+                return new RepositorySnapshot(ref.coordinate(), sha, List.of());
+            };
+            var strategy = new RepositorySourceStrategy(rest, clone, properties,
+                    (ref, sha) -> new RepositorySourceStrategy.TreeInspection(10_001, false));
+
+            strategy.fetch(REF, "b".repeat(40));
+
+            assertThat(selected).hasValue("clone");
+        } finally {
+            deleteTree(repository);
         }
-        runGit(repository, "add", ".");
-        runGit(repository, "commit", "--quiet", "-m", "large fixture");
-
-        CloneProperties properties = new CloneProperties();
-        properties.setFileThreshold(10_000);
-        AtomicReference<String> selected = new AtomicReference<>();
-        RepositorySourceFetcher clone = (ref, sha) -> {
-            selected.set("clone");
-            return new RepositorySnapshot(ref.coordinate(), sha, List.of());
-        };
-        RepositorySourceFetcher rest = (ref, sha) -> {
-            selected.set("rest");
-            return new RepositorySnapshot(ref.coordinate(), sha, List.of());
-        };
-        var strategy = new RepositorySourceStrategy(rest, clone, properties,
-                (ref, sha) -> new RepositorySourceStrategy.TreeInspection(10_001, false));
-
-        strategy.fetch(REF, "b".repeat(40));
-
-        assertThat(selected).hasValue("clone");
     }
 
     private static ShallowCloneRepositoryFetcher fetcher(LocalGitRunner runner,
@@ -198,6 +202,26 @@ class ShallowCloneIntegrationTest {
             Thread.currentThread().interrupt();
             throw new AssertionError("git command interrupted", error);
         }
+    }
+
+    private static void deleteTree(Path root) throws IOException {
+        if (!Files.exists(root)) return;
+        Files.walkFileTree(root, new java.nio.file.SimpleFileVisitor<>() {
+            @Override
+            public java.nio.file.FileVisitResult visitFile(Path file,
+                    java.nio.file.attribute.BasicFileAttributes attrs) throws IOException {
+                Files.deleteIfExists(file);
+                return java.nio.file.FileVisitResult.CONTINUE;
+            }
+
+            @Override
+            public java.nio.file.FileVisitResult postVisitDirectory(Path directory, IOException error)
+                    throws IOException {
+                if (error != null) throw error;
+                Files.deleteIfExists(directory);
+                return java.nio.file.FileVisitResult.CONTINUE;
+            }
+        });
     }
 
     private record CommitPair(String first, String second) { }

@@ -5,18 +5,23 @@ import com.cartograph.graph.model.RepositoryRef;
 import com.cartograph.graph.model.RepositorySnapshot;
 import com.cartograph.graph.model.SourceFile;
 import com.cartograph.ingestion.IndexingLimits;
+import com.cartograph.ingestion.RepositoryLimitException;
 
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.FileVisitResult;
 import java.nio.file.Files;
 import java.nio.file.LinkOption;
 import java.nio.file.Path;
+import java.nio.file.SimpleFileVisitor;
+import java.nio.file.attribute.BasicFileAttributes;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Locale;
 import java.util.Set;
-import java.util.stream.Stream;
 
 /** Reads only bounded, supported source files from an isolated clone. */
 public final class CloneSourceWalker {
@@ -35,53 +40,88 @@ public final class CloneSourceWalker {
     }
 
     public RepositorySnapshot walk(Path root, String repository, String commitSha) {
-        List<Path> paths;
-        try (Stream<Path> stream = Files.walk(root)) {
-            paths = stream.filter(path -> !path.equals(root))
-                    .filter(this::notIgnored)
-                    .filter(path -> !Files.isSymbolicLink(path))
-                    .sorted(Comparator.comparing(path -> root.relativize(path).toString()))
-                    .toList();
+        Path normalizedRoot = root.toAbsolutePath().normalize();
+        List<SourceFile> files = new ArrayList<>();
+        List<GraphWarning> warnings = new ArrayList<>();
+        WalkState state = new WalkState(normalizedRoot, files, warnings);
+        try {
+            Files.walkFileTree(normalizedRoot, new SimpleFileVisitor<>() {
+                @Override
+                public FileVisitResult preVisitDirectory(Path directory, BasicFileAttributes attributes) {
+                    if (!directory.equals(normalizedRoot)
+                            && (Files.isSymbolicLink(directory) || isIgnoredDirectory(directory))) {
+                        return FileVisitResult.SKIP_SUBTREE;
+                    }
+                    return FileVisitResult.CONTINUE;
+                }
+
+                @Override
+                public FileVisitResult visitFile(Path path, BasicFileAttributes attributes) {
+                    if (!Files.isSymbolicLink(path) && attributes.isRegularFile()) {
+                        visitRegularFile(path, state);
+                    }
+                    return FileVisitResult.CONTINUE;
+                }
+
+                @Override
+                public FileVisitResult visitFileFailed(Path path, IOException error) {
+                    throw new CloneFailureException(CloneFailureException.Kind.CLONE_FAILED, error);
+                }
+            });
         } catch (IOException error) {
             throw new CloneFailureException(CloneFailureException.Kind.CLONE_FAILED, error);
         }
-
-        List<SourceFile> files = new ArrayList<>();
-        List<GraphWarning> warnings = new ArrayList<>();
-        long totalBytes = 0;
-        int filesSeen = 0;
-        long candidates = 0;
-        for (Path path : paths) {
-            if (!Files.isRegularFile(path, LinkOption.NOFOLLOW_LINKS)) continue;
-            filesSeen++;
-            String relative = root.relativize(path).toString().replace(path.getFileSystem().getSeparator(), "/");
-            String language = language(relative);
-            if (language != null && ++candidates > limits.maxFileCount()) {
-                throw new com.cartograph.ingestion.RepositoryLimitException(
-                        IndexingLimits.Limit.FILE_COUNT, candidates, limits.maxFileCount());
-            }
-            if (language == null) {
-                warnings.add(new GraphWarning(isPython(relative) ? "UNSUPPORTED_LANGUAGE" : "UNSUPPORTED_FILE",
-                        isPython(relative) ? "Python source is not supported and was skipped"
-                                : "File type is not supported and was skipped", relative, null));
-                continue;
-            }
-            try {
-                long size = Files.size(path);
-                limits.validateFetchedContent(size, totalBytes);
-                byte[] content = Files.readAllBytes(path);
-                totalBytes = limits.validateFetchedContent(content.length, totalBytes);
-                files.add(new SourceFile(relative, new String(content, StandardCharsets.UTF_8), language));
-            } catch (IOException error) {
-                throw new CloneFailureException(CloneFailureException.Kind.CLONE_FAILED, error);
-            }
-        }
-        return new RepositorySnapshot(repository, commitSha, files, warnings, filesSeen);
+        files.sort(Comparator.comparing(SourceFile::path));
+        return new RepositorySnapshot(repository, commitSha, files, warnings, state.filesSeen);
     }
 
-    private boolean notIgnored(Path path) {
-        for (Path segment : path) if (IGNORED_DIRECTORIES.contains(segment.toString())) return false;
-        return true;
+    private void visitRegularFile(Path path, WalkState state) {
+        state.filesSeen++;
+        String relative = state.root.relativize(path).toString()
+                .replace(path.getFileSystem().getSeparator(), "/");
+        String language = language(relative);
+        if (language == null) {
+            state.warnings.add(new GraphWarning(isPython(relative) ? "UNSUPPORTED_LANGUAGE" : "UNSUPPORTED_FILE",
+                    isPython(relative) ? "Python source is not supported and was skipped"
+                            : "File type is not supported and was skipped", relative, null));
+            return;
+        }
+        long candidate = state.candidates + 1;
+        if (candidate > limits.maxFileCount()) {
+            throw new RepositoryLimitException(IndexingLimits.Limit.FILE_COUNT, candidate, limits.maxFileCount());
+        }
+        state.candidates = candidate;
+        try {
+            long size = Files.size(path);
+            limits.validateFetchedContent(size, state.totalBytes);
+            byte[] content = readBounded(path, limits.maxFileBytes());
+            state.totalBytes = limits.validateFetchedContent(content.length, state.totalBytes);
+            state.files.add(new SourceFile(relative, new String(content, StandardCharsets.UTF_8), language));
+        } catch (IOException error) {
+            throw new CloneFailureException(CloneFailureException.Kind.CLONE_FAILED, error);
+        }
+    }
+
+    private static byte[] readBounded(Path path, long maximumBytes) throws IOException {
+        ByteArrayOutputStream output = new ByteArrayOutputStream((int) Math.min(maximumBytes, 8192));
+        byte[] buffer = new byte[8192];
+        try (InputStream input = Files.newInputStream(path, LinkOption.NOFOLLOW_LINKS)) {
+            int read;
+            long total = 0;
+            while ((read = input.read(buffer)) != -1) {
+                total += read;
+                if (total > maximumBytes) {
+                    throw new RepositoryLimitException(IndexingLimits.Limit.FILE_BYTES, total, maximumBytes);
+                }
+                output.write(buffer, 0, read);
+            }
+        }
+        return output.toByteArray();
+    }
+
+    private boolean isIgnoredDirectory(Path path) {
+        Path name = path.getFileName();
+        return name != null && IGNORED_DIRECTORIES.contains(name.toString());
     }
 
     private static boolean isPython(String path) {
@@ -94,5 +134,20 @@ public final class CloneSourceWalker {
         if (lower.endsWith(".js") || lower.endsWith(".jsx")) return "javascript";
         if (lower.endsWith(".ts") || lower.endsWith(".tsx")) return "typescript";
         return null;
+    }
+
+    private static final class WalkState {
+        private final Path root;
+        private final List<SourceFile> files;
+        private final List<GraphWarning> warnings;
+        private long totalBytes;
+        private long candidates;
+        private int filesSeen;
+
+        private WalkState(Path root, List<SourceFile> files, List<GraphWarning> warnings) {
+            this.root = root;
+            this.files = files;
+            this.warnings = warnings;
+        }
     }
 }

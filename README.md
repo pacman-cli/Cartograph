@@ -201,7 +201,12 @@ Every error uses a stable `{ "code": "...", "message": "..." }` body (full catal
 | 413 | `REPOSITORY_LIMIT_EXCEEDED` | Repository exceeds configured caps |
 | 429 | `UPSTREAM_GITHUB_ERROR` | GitHub rate limit hit (set `GITHUB_TOKEN`) |
 | 429 | `RATE_LIMIT_EXCEEDED` | Client exceeded the indexing rate limit (`Retry-After` header is set) |
+| 502 | `CLONE_FAILED` | Shallow clone or checkout failed |
+| 502 | `CLONE_COMMIT_MISMATCH` | Clone did not verify the requested commit |
 | 502 | `UPSTREAM_GITHUB_ERROR` | GitHub returned an unusable response |
+| 503 | `CLONE_UNAVAILABLE` | The local Git executable or clone workspace is unavailable |
+| 503 | `CLONE_DISABLED` | The required clone fallback is disabled |
+| 504 | `CLONE_TIMEOUT` | Shallow clone or checkout exceeded its timeout |
 | 500 | `INTERNAL_ERROR` | Unexpected server failure |
 
 ## 🔭 How it works
