@@ -41,3 +41,15 @@ feat(ingestion): add bounded clone process lifecycle
 
 - The full suite remains blocked by the Task 1 configuration documentation mismatch described above; resolving it would require touching files outside this task's ownership.
 - Cleanup failures are retained as suppressed exceptions when an original operation failure is supplied; standalone cleanup reports `CLONE_FAILED`.
+
+## Review fixes
+
+- `GitProcessRunner` now applies one operation deadline to process completion, output-reader futures, and executor termination. Timed reader waits cancel readers, close pipes, terminate the process tree, and raise `CLONE_TIMEOUT`.
+- Added a deterministic inherited-pipe test where a child keeps stdout open after its parent exits.
+- `CloneWorkspace` cleanup now uses nanosecond-aware joins, including positive sub-millisecond durations. Timeout/interruption paths interrupt the worker, wait a bounded 50 ms grace period, and attach safe diagnostics containing the workspace root, timeout, and cleanup status. A timed-out worker is reported as remaining in progress with retry unsupported.
+- Added deterministic cleanup timeout diagnostics and suppression coverage.
+
+Verification after fixes:
+
+- Focused Task 2 tests: **PASS** — 11 tests, 0 failures, 0 errors.
+- `git diff --check`: **PASS**.
