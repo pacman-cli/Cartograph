@@ -57,6 +57,20 @@ class GitProcessRunnerTest {
     }
 
     @Test
+    void timesOutWhenChildKeepsOutputPipeOpenAfterParentExits() throws Exception {
+        Path directory = Files.createTempDirectory("runner-test-");
+        Path script = script(directory, "(sleep 5)& exit 0\n");
+
+        long started = System.nanoTime();
+        assertThatThrownBy(() -> new GitProcessRunner().run(
+                List.of(script.toString()), directory, Duration.ofMillis(150), 100))
+                .isInstanceOf(CloneFailureException.class)
+                .extracting(error -> ((CloneFailureException) error).kind())
+                .isEqualTo(CloneFailureException.Kind.CLONE_TIMEOUT);
+        assertThat(Duration.ofNanos(System.nanoTime() - started)).isLessThan(Duration.ofSeconds(2));
+    }
+
+    @Test
     void restoresInterruptFlagWhenInterrupted() throws Exception {
         Path directory = Files.createTempDirectory("runner-test-");
         Path script = script(directory, "sleep 30\n");

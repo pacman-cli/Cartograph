@@ -65,4 +65,20 @@ class CloneWorkspaceTest {
         assertThat(original.getSuppressed()).hasSize(1);
         workspace.cleanup(Duration.ofSeconds(2));
     }
+
+    @Test
+    void reportsCleanupTimeoutWithSafeRootAndTimeoutDiagnostics() throws Exception {
+        CloneWorkspace workspace = CloneWorkspace.create();
+        Files.createDirectories(workspace.resolve("nested"));
+        for (int index = 0; index < 2_000; index++) {
+            Files.writeString(workspace.resolve("nested/file-" + index), "contents");
+        }
+
+        RuntimeException original = new RuntimeException("operation failed");
+        workspace.cleanup(Duration.ofNanos(1), original);
+
+        assertThat(original.getSuppressed()).hasSize(1);
+        assertThat(original.getSuppressed()[0].getCause()).hasMessageContaining(workspace.root().toString());
+        assertThat(original.getSuppressed()[0].getCause()).hasMessageContaining("timeout");
+    }
 }

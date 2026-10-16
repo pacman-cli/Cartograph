@@ -8,6 +8,7 @@ import java.nio.file.SimpleFileVisitor;
 import java.nio.file.attribute.BasicFileAttributes;
 import java.time.Duration;
 import java.util.Objects;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 
@@ -82,18 +83,27 @@ public final class CloneWorkspace implements AutoCloseable {
         worker.setDaemon(true);
         worker.start();
         try {
-            worker.join(timeout.toMillis());
+            join(worker, timeout.toNanos());
             if (worker.isAlive()) {
                 worker.interrupt();
-                throw new CloneFailureException(CloneFailureException.Kind.CLONE_FAILED);
+                join(worker, TimeUnit.MILLISECONDS.toNanos(50));
+                String state = worker.isAlive() ? "cleanup remains in progress; retry is not supported"
+                        : "cleanup stopped after timeout";
+                throw new CloneFailureException(CloneFailureException.Kind.CLONE_FAILED,
+                        new CleanupDiagnostic("Clone workspace cleanup timeout root=" + root
+                                + " timeout=" + timeout + " " + state));
             }
             if (failure.get() != null) {
                 throw new CloneFailureException(CloneFailureException.Kind.CLONE_FAILED, failure.get());
             }
         } catch (InterruptedException error) {
             worker.interrupt();
+            try { join(worker, TimeUnit.MILLISECONDS.toNanos(50)); }
+            catch (InterruptedException ignored) { }
             Thread.currentThread().interrupt();
-            throw new CloneFailureException(CloneFailureException.Kind.CLONE_FAILED, error);
+            throw new CloneFailureException(CloneFailureException.Kind.CLONE_FAILED,
+                    new CleanupDiagnostic("Clone workspace cleanup interrupted root=" + root
+                            + " timeout=" + timeout + " cleanup status unknown"));
         }
     }
 
@@ -130,11 +140,24 @@ public final class CloneWorkspace implements AutoCloseable {
                 }
             });
         } catch (IOException error) {
-            throw new CleanupFailure(error);
+            throw new CleanupFailure(root, error);
         }
     }
 
+    private static void join(Thread worker, long timeoutNanos) throws InterruptedException {
+        long millis = timeoutNanos / 1_000_000;
+        int nanos = (int) (timeoutNanos % 1_000_000);
+        if (millis == 0 && nanos == 0) nanos = 1;
+        worker.join(millis, nanos);
+    }
+
     private static final class CleanupFailure extends RuntimeException {
-        private CleanupFailure(Throwable cause) { super(cause); }
+        private CleanupFailure(Path root, Throwable cause) {
+            super("Clone workspace cleanup failed root=" + root, cause);
+        }
+    }
+
+    private static final class CleanupDiagnostic extends RuntimeException {
+        private CleanupDiagnostic(String message) { super(message); }
     }
 }
