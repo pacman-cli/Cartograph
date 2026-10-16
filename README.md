@@ -140,7 +140,11 @@ Only a JDK 17 and Maven are required — SQLite is embedded, nothing else to ins
 | `cartograph.github.read-timeout-millis` | `15000` | HTTP read timeout (ms) |
 | `cartograph.github.cache-max-entries` | `256` | Max entries in the GitHub response cache |
 | `cartograph.github.cache-max-bytes` | `16777216` (16 MiB) | Max response-cache bytes |
-| `cartograph.github.clone` | `enabled=true; file-threshold=10000; timeout-seconds=120; cleanup-timeout-seconds=10; executable=git` | Shallow-clone fallback settings; see the ingestion flow below |
+| `cartograph.github.clone.enabled` | `true` | Enable the shallow-clone fallback |
+| `cartograph.github.clone.file-threshold` | `10000` | Use clone mode at or above this tree file count |
+| `cartograph.github.clone.timeout-seconds` | `120` | Maximum duration for clone/checkout processes |
+| `cartograph.github.clone.cleanup-timeout-seconds` | `10` | Maximum duration allowed for clone workspace cleanup |
+| `cartograph.github.clone.executable` | `git` | Git executable used by the fallback |
 | `cartograph.ratelimit.enabled` | `true` | Per-client rate limiting on `POST /api/v1/index` |
 | `cartograph.ratelimit.capacity` | `30` | Burst capacity of the per-client token bucket |
 | `cartograph.ratelimit.refill-per-minute` | `60` | Tokens refilled per minute per client |
