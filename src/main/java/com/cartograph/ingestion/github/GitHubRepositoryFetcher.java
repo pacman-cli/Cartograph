@@ -83,6 +83,9 @@ public class GitHubRepositoryFetcher implements RepositoryFetcher, RepositorySou
         validateSha(sha);
         GitHubClient.TreeDto tree = requireBody(client.tree(ref, sha));
         validateTree(tree);
+        if (Boolean.TRUE.equals(tree.truncated()) && tree.tree() == null) {
+            return new RepositorySourceStrategy.TreeInspection(0, true);
+        }
         long files = tree.tree().stream().filter(entry -> "blob".equals(entry.type())).count();
         return new RepositorySourceStrategy.TreeInspection(files, Boolean.TRUE.equals(tree.truncated()));
     }

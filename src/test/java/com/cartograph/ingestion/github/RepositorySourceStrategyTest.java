@@ -2,6 +2,7 @@ package com.cartograph.ingestion.github;
 
 import com.cartograph.graph.model.RepositoryRef;
 import com.cartograph.graph.model.RepositorySnapshot;
+import com.cartograph.ingestion.IndexingLimits;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
@@ -73,6 +74,23 @@ class RepositorySourceStrategyTest {
 
         strategy.fetch(ref, SHA);
         assertThat(calls).hasValue(1);
+    }
+
+    @Test
+    void truncatedNullTreeRoutesToCloneDisabledWithoutDereferencingPartialTree() {
+        GitHubClient client = mock(GitHubClient.class);
+        when(client.tree(ref, SHA)).thenReturn(new GitHubClient.Response<>(
+                new GitHubClient.TreeDto(true, null), null));
+        var rest = new GitHubRepositoryFetcher(client, new IndexingLimits(10, 100, 100));
+        var clone = mock(RepositorySourceFetcher.class);
+        var properties = new CloneProperties();
+        properties.setEnabled(false);
+        var strategy = new RepositorySourceStrategy(rest, clone, properties);
+
+        assertThatThrownBy(() -> strategy.fetch(ref, SHA))
+                .isInstanceOf(CloneFailureException.class)
+                .extracting("kind").isEqualTo(CloneFailureException.Kind.CLONE_DISABLED);
+        verifyNoInteractions(clone);
     }
 
     private static RepositorySourceStrategy strategy(RepositorySourceFetcher rest, RepositorySourceFetcher clone,
