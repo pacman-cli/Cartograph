@@ -21,6 +21,12 @@ import com.cartograph.ingestion.GitHubUrlNormalizer;
 import com.cartograph.ingestion.github.GitHubClient;
 import com.cartograph.ingestion.github.GitHubProperties;
 import com.cartograph.ingestion.github.GitHubRepositoryFetcher;
+import com.cartograph.ingestion.github.CloneSourceWalker;
+import com.cartograph.ingestion.github.CloneProperties;
+import com.cartograph.ingestion.github.GitProcessRunner;
+import com.cartograph.ingestion.github.RepositorySourceFetcher;
+import com.cartograph.ingestion.github.RepositorySourceStrategy;
+import com.cartograph.ingestion.github.ShallowCloneRepositoryFetcher;
 import com.cartograph.parsing.javascript.JavaScriptTypeScriptParser;
 import com.cartograph.persistence.sqlite.SQLiteGraphSnapshotRepository;
 
@@ -34,8 +40,21 @@ public class CartographApplication {
             com.fasterxml.jackson.databind.ObjectMapper mapper, GitHubProperties properties) {
         return new GitHubClient(builder, mapper, properties);
     }
-    @Bean RepositoryFetcher repositoryFetcher(GitHubClient client, GitHubProperties properties) {
+    @Bean GitHubRepositoryFetcher repositoryFetcher(GitHubClient client, GitHubProperties properties) {
         return new GitHubRepositoryFetcher(client, properties);
+    }
+    @Bean GitProcessRunner gitProcessRunner() { return new GitProcessRunner(); }
+    @Bean CloneProperties cloneProperties(GitHubProperties properties) { return properties.clone(); }
+    @Bean CloneSourceWalker cloneSourceWalker(GitHubProperties properties) {
+        return new CloneSourceWalker(properties.limits());
+    }
+    @Bean ShallowCloneRepositoryFetcher shallowCloneRepositoryFetcher(CloneProperties properties,
+            GitProcessRunner runner, CloneSourceWalker walker) {
+        return new ShallowCloneRepositoryFetcher(properties, runner, walker);
+    }
+    @Bean RepositorySourceFetcher repositorySourceFetcher(GitHubRepositoryFetcher rest,
+            ShallowCloneRepositoryFetcher clone, CloneProperties properties) {
+        return new RepositorySourceStrategy(rest, clone, properties);
     }
     @Bean SourceParser sourceParser() { return new JavaScriptTypeScriptParser(); }
     @Bean GraphBuilder graphBuilder(SourceParser parser) { return new GraphBuilder(parser); }
