@@ -2,6 +2,7 @@ package com.cartograph.ingestion.github;
 
 import com.cartograph.ingestion.IndexingLimits;
 import org.springframework.boot.context.properties.ConfigurationProperties;
+import org.springframework.boot.context.properties.NestedConfigurationProperty;
 
 import java.net.URI;
 
@@ -21,6 +22,8 @@ public class GitHubProperties {
     private int readTimeoutMillis = 15_000;
     private int cacheMaxEntries = 256;
     private long cacheMaxBytes = 16_777_216;
+    @NestedConfigurationProperty
+    private CloneProperties clone = new CloneProperties();
 
     public GitHubProperties() { }
 
@@ -43,6 +46,7 @@ public class GitHubProperties {
     public int readTimeoutMillis() { return readTimeoutMillis; }
     public int cacheMaxEntries() { return cacheMaxEntries; }
     public long cacheMaxBytes() { return cacheMaxBytes; }
+    public CloneProperties clone() { return clone; }
     public void setMaxAttempts(int value) {
         if (value < 1 || value > 10) throw new IllegalArgumentException("GitHub max attempts must be between 1 and 10");
         maxAttempts = value;
@@ -70,6 +74,10 @@ public class GitHubProperties {
     public void setCacheMaxBytes(long value) {
         if (value < 0) throw new IllegalArgumentException("GitHub cache bytes must not be negative");
         cacheMaxBytes = value;
+    }
+    public void setClone(CloneProperties value) {
+        if (value == null) throw new IllegalArgumentException("GitHub clone properties must not be null");
+        clone = value;
     }
     public void setToken(String token) { this.token = token == null ? "" : token; }
     public void setBaseUrl(URI baseUrl) { this.baseUrl = baseUrl; }

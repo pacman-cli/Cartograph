@@ -48,6 +48,12 @@ cartograph:
     read-timeout-millis: 15000
     cache-max-entries: 256
     cache-max-bytes: 16777216
+    clone:
+      enabled: true
+      file-threshold: 10000
+      timeout-seconds: 120
+      cleanup-timeout-seconds: 10
+      executable: git
   ratelimit:
     enabled: true
     capacity: 30
