@@ -52,7 +52,7 @@ public class CartographApplication {
             GitProcessRunner runner, CloneSourceWalker walker) {
         return new ShallowCloneRepositoryFetcher(properties, runner, walker);
     }
-    @Bean RepositorySourceFetcher repositorySourceFetcher(GitHubRepositoryFetcher rest,
+    @Bean RepositorySourceStrategy repositorySourceFetcher(GitHubRepositoryFetcher rest,
             ShallowCloneRepositoryFetcher clone, CloneProperties properties) {
         return new RepositorySourceStrategy(rest, clone, properties);
     }

@@ -10,6 +10,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Qualifier;
 
 import java.util.List;
 import java.util.Objects;
@@ -38,14 +39,15 @@ public final class IndexRepositoryService {
      * @param snapshots stores and retrieves completed graph snapshots
      * @param graphBuilder builds a graph from a fetched repository snapshot
      */
-    @Autowired
     public IndexRepositoryService(GitHubUrlNormalizer normalizer, RepositoryFetcher fetcher,
             GraphSnapshotRepository snapshots, GraphBuilder graphBuilder) {
         this(normalizer, fetcher, fetcher::fetchResolved, snapshots, graphBuilder);
     }
 
+    @Autowired
     public IndexRepositoryService(GitHubUrlNormalizer normalizer, RepositoryFetcher fetcher,
-            RepositorySourceFetcher sourceFetcher, GraphSnapshotRepository snapshots, GraphBuilder graphBuilder) {
+            @Qualifier("repositorySourceFetcher") RepositorySourceFetcher sourceFetcher,
+            GraphSnapshotRepository snapshots, GraphBuilder graphBuilder) {
         this.normalizer = Objects.requireNonNull(normalizer);
         this.fetcher = Objects.requireNonNull(fetcher);
         this.sourceFetcher = Objects.requireNonNull(sourceFetcher);
