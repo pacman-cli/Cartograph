@@ -59,6 +59,7 @@ class IndexRepositoryEndToEndTest {
 
     @Test
     void indexesFixtureAndUsesPersistedSnapshotOnSecondRequest() throws Exception {
+        org.junit.jupiter.api.Assertions.assertTrue(new ClassPathResource("clone-fixture/README.md").exists());
         String request = "{\"repositoryUrl\":\"https://github.com/acme/fixture\"}";
 
         mvc.perform(post("/api/v1/index").contentType(APPLICATION_JSON).content(request))
