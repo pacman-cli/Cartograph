@@ -1,19 +1,19 @@
 package com.cartograph.ingestion.github;
 
-import org.junit.jupiter.api.Test;
-
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.time.Duration;
-
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatIllegalArgumentException;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.time.Duration;
+import org.junit.jupiter.api.Test;
+
 class CloneWorkspaceTest {
     @Test
     void createsUniqueRootAndAbsentDestination() throws Exception {
-        try (CloneWorkspace first = CloneWorkspace.create(); CloneWorkspace second = CloneWorkspace.create()) {
+        try (CloneWorkspace first = CloneWorkspace.create();
+                CloneWorkspace second = CloneWorkspace.create()) {
             assertThat(first.root()).isDirectory();
             assertThat(second.root()).isDirectory();
             assertThat(first.root()).isNotEqualTo(second.root());
@@ -24,13 +24,13 @@ class CloneWorkspaceTest {
     @Test
     void resolvesOnlyPathsContainedByRootAndRejectsExistingSymlinkEscape() throws Exception {
         try (CloneWorkspace workspace = CloneWorkspace.create()) {
-            assertThat(workspace.resolve("src/Main.java")).isEqualTo(workspace.root().resolve("src/Main.java"));
+            assertThat(workspace.resolve("src/Main.java"))
+                    .isEqualTo(workspace.root().resolve("src/Main.java"));
             assertThatThrownBy(() -> workspace.resolve("../outside")).isInstanceOf(IllegalArgumentException.class);
 
             Path outside = Files.createTempDirectory("outside-");
             Files.createSymbolicLink(workspace.root().resolve("link"), outside);
-            assertThatThrownBy(() -> workspace.resolve("link/file.txt"))
-                    .isInstanceOf(IllegalArgumentException.class);
+            assertThatThrownBy(() -> workspace.resolve("link/file.txt")).isInstanceOf(IllegalArgumentException.class);
         }
     }
 
@@ -78,7 +78,8 @@ class CloneWorkspaceTest {
         workspace.cleanup(Duration.ofNanos(1), original);
 
         assertThat(original.getSuppressed()).hasSize(1);
-        assertThat(original.getSuppressed()[0].getCause()).hasMessageContaining(workspace.root().toString());
+        assertThat(original.getSuppressed()[0].getCause())
+                .hasMessageContaining(workspace.root().toString());
         assertThat(original.getSuppressed()[0].getCause()).hasMessageContaining("timeout");
     }
 }

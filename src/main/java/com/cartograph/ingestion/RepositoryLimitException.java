@@ -13,9 +13,23 @@ public final class RepositoryLimitException extends RuntimeException {
         this.configuredLimit = configuredLimit;
     }
 
-    public IndexingLimits.Limit limit() { return limit; }
-    public IndexingLimits.Limit violatedLimit() { return limit; }
-    public long observedValue() { return observedValue; }
-    public long observed() { return observedValue; }
-    public long configuredLimit() { return configuredLimit; }
+    public IndexingLimits.Limit limit() {
+        return limit;
+    }
+
+    public IndexingLimits.Limit violatedLimit() {
+        return limit;
+    }
+
+    public long observedValue() {
+        return observedValue;
+    }
+
+    public long observed() {
+        return observedValue;
+    }
+
+    public long configuredLimit() {
+        return configuredLimit;
+    }
 }

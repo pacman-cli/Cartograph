@@ -15,7 +15,15 @@ public final class ProcessResult extends Exception {
         this.stderr = Objects.requireNonNull(stderr, "stderr must not be null");
     }
 
-    public int exitCode() { return exitCode; }
-    public String stdout() { return stdout; }
-    public String stderr() { return stderr; }
+    public int exitCode() {
+        return exitCode;
+    }
+
+    public String stdout() {
+        return stdout;
+    }
+
+    public String stderr() {
+        return stderr;
+    }
 }

@@ -1,11 +1,11 @@
 package com.cartograph.ingestion.github;
 
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+
 import com.cartograph.graph.model.RepositoryRef;
 import com.cartograph.graph.model.RepositorySnapshot;
 import com.cartograph.ingestion.IndexingLimits;
-import org.junit.jupiter.api.Assumptions;
-import org.junit.jupiter.api.Test;
-
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.nio.file.Files;
@@ -16,9 +16,8 @@ import java.util.List;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
-
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import org.junit.jupiter.api.Assumptions;
+import org.junit.jupiter.api.Test;
 
 /** Offline integration coverage using the local Git executable and temporary repositories. */
 class ShallowCloneIntegrationTest {
@@ -46,12 +45,15 @@ class ShallowCloneIntegrationTest {
     void cleansWorkspaceAfterCloneFailure() throws Exception {
         assumeGitAvailable();
         TrackingWorkspaces workspaces = new TrackingWorkspaces();
-        var fetcher = new ShallowCloneRepositoryFetcher(new CloneProperties(), (args, cwd, timeout, output) -> {
-            throw new CloneFailureException(CloneFailureException.Kind.CLONE_FAILED);
-        }, workspaces::create, new CloneSourceWalker(new IndexingLimits(10, 1000, 100)));
+        var fetcher = new ShallowCloneRepositoryFetcher(
+                new CloneProperties(),
+                (args, cwd, timeout, output) -> {
+                    throw new CloneFailureException(CloneFailureException.Kind.CLONE_FAILED);
+                },
+                workspaces::create,
+                new CloneSourceWalker(new IndexingLimits(10, 1000, 100)));
 
-        assertThatThrownBy(() -> fetcher.fetch(REF, "a".repeat(40)))
-                .isInstanceOf(CloneFailureException.class);
+        assertThatThrownBy(() -> fetcher.fetch(REF, "a".repeat(40))).isInstanceOf(CloneFailureException.class);
         assertWorkspaceRootsDeleted(workspaces);
     }
 
@@ -59,9 +61,13 @@ class ShallowCloneIntegrationTest {
     void cleansWorkspaceAfterTimeout() throws Exception {
         assumeGitAvailable();
         TrackingWorkspaces workspaces = new TrackingWorkspaces();
-        var fetcher = new ShallowCloneRepositoryFetcher(new CloneProperties(), (args, cwd, timeout, output) -> {
-            throw new CloneFailureException(CloneFailureException.Kind.CLONE_TIMEOUT);
-        }, workspaces::create, new CloneSourceWalker(new IndexingLimits(10, 1000, 100)));
+        var fetcher = new ShallowCloneRepositoryFetcher(
+                new CloneProperties(),
+                (args, cwd, timeout, output) -> {
+                    throw new CloneFailureException(CloneFailureException.Kind.CLONE_TIMEOUT);
+                },
+                workspaces::create,
+                new CloneSourceWalker(new IndexingLimits(10, 1000, 100)));
 
         assertThatThrownBy(() -> fetcher.fetch(REF, "a".repeat(40)))
                 .isInstanceOf(CloneFailureException.class)
@@ -75,16 +81,20 @@ class ShallowCloneIntegrationTest {
         assumeGitAvailable();
         TrackingWorkspaces workspaces = new TrackingWorkspaces();
         CountDownLatch started = new CountDownLatch(1);
-        var fetcher = new ShallowCloneRepositoryFetcher(new CloneProperties(), (args, cwd, timeout, output) -> {
-            started.countDown();
-            try {
-                Thread.sleep(TimeUnit.MINUTES.toMillis(1));
-            } catch (InterruptedException interrupted) {
-                Thread.currentThread().interrupt();
-                throw new CloneFailureException(CloneFailureException.Kind.CLONE_TIMEOUT, interrupted);
-            }
-            throw new AssertionError("interrupted test runner did not block");
-        }, workspaces::create, new CloneSourceWalker(new IndexingLimits(10, 1000, 100)));
+        var fetcher = new ShallowCloneRepositoryFetcher(
+                new CloneProperties(),
+                (args, cwd, timeout, output) -> {
+                    started.countDown();
+                    try {
+                        Thread.sleep(TimeUnit.MINUTES.toMillis(1));
+                    } catch (InterruptedException interrupted) {
+                        Thread.currentThread().interrupt();
+                        throw new CloneFailureException(CloneFailureException.Kind.CLONE_TIMEOUT, interrupted);
+                    }
+                    throw new AssertionError("interrupted test runner did not block");
+                },
+                workspaces::create,
+                new CloneSourceWalker(new IndexingLimits(10, 1000, 100)));
         AtomicReference<Throwable> failure = new AtomicReference<>();
         Thread operation = new Thread(() -> {
             try {
@@ -110,7 +120,8 @@ class ShallowCloneIntegrationTest {
         try {
             initialize(repository);
             for (int index = 0; index < 10_001; index++) {
-                Files.writeString(repository.resolve(String.format("file-%05d.js", index)), "export const value = 1;\n");
+                Files.writeString(
+                        repository.resolve(String.format("file-%05d.js", index)), "export const value = 1;\n");
             }
             runGit(repository, "add", ".");
             runGit(repository, "commit", "--quiet", "-m", "large fixture");
@@ -126,8 +137,8 @@ class ShallowCloneIntegrationTest {
                 selected.set("rest");
                 return new RepositorySnapshot(ref.coordinate(), sha, List.of());
             };
-            var strategy = new RepositorySourceStrategy(rest, clone, properties,
-                    (ref, sha) -> new RepositorySourceStrategy.TreeInspection(10_001, false));
+            var strategy = new RepositorySourceStrategy(
+                    rest, clone, properties, (ref, sha) -> new RepositorySourceStrategy.TreeInspection(10_001, false));
 
             strategy.fetch(REF, "b".repeat(40));
 
@@ -137,14 +148,17 @@ class ShallowCloneIntegrationTest {
         }
     }
 
-    private static ShallowCloneRepositoryFetcher fetcher(LocalGitRunner runner,
-                                                           java.util.function.Function<IndexingLimits, CloneSourceWalker> walkers) {
-        return new ShallowCloneRepositoryFetcher(new CloneProperties(), runner,
+    private static ShallowCloneRepositoryFetcher fetcher(
+            LocalGitRunner runner, java.util.function.Function<IndexingLimits, CloneSourceWalker> walkers) {
+        return new ShallowCloneRepositoryFetcher(
+                new CloneProperties(),
+                runner,
                 () -> {
                     CloneWorkspace workspace = CloneWorkspace.create();
                     runner.workspaceRoots.add(workspace.root());
                     return workspace;
-                }, walkers.apply(new IndexingLimits(10, 1000, 100)));
+                },
+                walkers.apply(new IndexingLimits(10, 1000, 100)));
     }
 
     private static void assertWorkspaceRootsDeleted(TrackingWorkspaces workspaces) {
@@ -153,7 +167,9 @@ class ShallowCloneIntegrationTest {
 
     private static void assumeGitAvailable() {
         try {
-            Process process = new ProcessBuilder(GIT, "--version").redirectErrorStream(true).start();
+            Process process = new ProcessBuilder(GIT, "--version")
+                    .redirectErrorStream(true)
+                    .start();
             assertThat(process.waitFor(5, TimeUnit.SECONDS)).isTrue();
             Assumptions.assumeTrue(process.exitValue() == 0, "local git executable is unavailable");
         } catch (IOException | InterruptedException unavailable) {
@@ -190,8 +206,12 @@ class ShallowCloneIntegrationTest {
             List<String> command = new ArrayList<>();
             command.add(GIT);
             command.addAll(List.of(arguments));
-            Process process = new ProcessBuilder(command).directory(directory.toFile()).redirectErrorStream(true).start();
-            String output = new String(process.getInputStream().readAllBytes(), java.nio.charset.StandardCharsets.UTF_8);
+            Process process = new ProcessBuilder(command)
+                    .directory(directory.toFile())
+                    .redirectErrorStream(true)
+                    .start();
+            String output =
+                    new String(process.getInputStream().readAllBytes(), java.nio.charset.StandardCharsets.UTF_8);
             if (!process.waitFor(30, TimeUnit.SECONDS) || process.exitValue() != 0) {
                 throw new AssertionError("git command failed: " + command + " output=" + output);
             }
@@ -208,8 +228,8 @@ class ShallowCloneIntegrationTest {
         if (!Files.exists(root)) return;
         Files.walkFileTree(root, new java.nio.file.SimpleFileVisitor<>() {
             @Override
-            public java.nio.file.FileVisitResult visitFile(Path file,
-                    java.nio.file.attribute.BasicFileAttributes attrs) throws IOException {
+            public java.nio.file.FileVisitResult visitFile(Path file, java.nio.file.attribute.BasicFileAttributes attrs)
+                    throws IOException {
                 Files.deleteIfExists(file);
                 return java.nio.file.FileVisitResult.CONTINUE;
             }
@@ -224,7 +244,7 @@ class ShallowCloneIntegrationTest {
         });
     }
 
-    private record CommitPair(String first, String second) { }
+    private record CommitPair(String first, String second) {}
 
     private static final class TrackingWorkspaces {
         private final List<Path> roots = new ArrayList<>();
@@ -241,7 +261,9 @@ class ShallowCloneIntegrationTest {
         private final GitProcessRunner delegate = new GitProcessRunner();
         private final List<Path> workspaceRoots = new ArrayList<>();
 
-        private LocalGitRunner(Path source) { this.source = source; }
+        private LocalGitRunner(Path source) {
+            this.source = source;
+        }
 
         @Override
         public ProcessResult run(List<String> arguments, Path workingDirectory, Duration timeout, int outputLimit) {

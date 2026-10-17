@@ -2,16 +2,6 @@ package com.cartograph.persistence.sqlite;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-import java.util.List;
-import java.nio.file.Files;
-import java.nio.file.Path;
-
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Test;
-import org.springframework.jdbc.core.JdbcTemplate;
-
-import org.sqlite.SQLiteDataSource;
-
 import com.cartograph.graph.model.EdgeKind;
 import com.cartograph.graph.model.GraphEdge;
 import com.cartograph.graph.model.GraphMetrics;
@@ -20,11 +10,19 @@ import com.cartograph.graph.model.GraphSnapshot;
 import com.cartograph.graph.model.GraphWarning;
 import com.cartograph.graph.model.SourceLocation;
 import com.cartograph.graph.model.SymbolKind;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.List;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.springframework.jdbc.core.JdbcTemplate;
+import org.sqlite.SQLiteDataSource;
 
 class SQLiteGraphSnapshotRepositoryTest {
     @org.junit.jupiter.api.Test
     void prunesOldSnapshotsBeyondRetentionPerRepository() {
-        SQLiteGraphSnapshotRepository limited = new SQLiteGraphSnapshotRepository(dataSource, new com.fasterxml.jackson.databind.ObjectMapper(), 2);
+        SQLiteGraphSnapshotRepository limited =
+                new SQLiteGraphSnapshotRepository(dataSource, new com.fasterxml.jackson.databind.ObjectMapper(), 2);
         limited.save(snapshot("acme/app", "sha-1"));
         limited.save(snapshot("acme/app", "sha-2"));
         limited.save(snapshot("acme/app", "sha-3"));
@@ -35,13 +33,16 @@ class SQLiteGraphSnapshotRepositoryTest {
         assertThat(limited.find("acme/app", "sha-3")).isPresent();
         assertThat(limited.findLatest("acme/app")).isPresent();
         assertThat(limited.find("acme/other", "sha-9")).isPresent();
-        var orphanedNodes = jdbc.queryForObject("SELECT COUNT(*) FROM graph_node WHERE snapshot_id NOT IN (SELECT id FROM repository_snapshot)", Integer.class);
+        var orphanedNodes = jdbc.queryForObject(
+                "SELECT COUNT(*) FROM graph_node WHERE snapshot_id NOT IN (SELECT id FROM repository_snapshot)",
+                Integer.class);
         assertThat(orphanedNodes).isZero();
     }
 
     @org.junit.jupiter.api.Test
     void nonPositiveRetentionKeepsEverything() {
-        SQLiteGraphSnapshotRepository unlimited = new SQLiteGraphSnapshotRepository(dataSource, new com.fasterxml.jackson.databind.ObjectMapper(), 0);
+        SQLiteGraphSnapshotRepository unlimited =
+                new SQLiteGraphSnapshotRepository(dataSource, new com.fasterxml.jackson.databind.ObjectMapper(), 0);
         for (int i = 0; i < 5; i++) {
             unlimited.save(snapshot("acme/app", "sha-" + i));
         }
@@ -54,7 +55,8 @@ class SQLiteGraphSnapshotRepositoryTest {
         for (int i = 0; i < 12; i++) {
             repository.save(snapshot("acme/app", "sha-" + i));
         }
-        var remaining = jdbc.queryForObject("SELECT COUNT(*) FROM repository_snapshot WHERE repository = ?", Integer.class, "acme/app");
+        var remaining = jdbc.queryForObject(
+                "SELECT COUNT(*) FROM repository_snapshot WHERE repository = ?", Integer.class, "acme/app");
         assertThat(remaining).isEqualTo(10);
     }
 
@@ -109,9 +111,12 @@ class SQLiteGraphSnapshotRepositoryTest {
         repository.save(snapshot("acme/app", "abc123"));
         repository.save(snapshot("acme/app", "abc123"));
 
-        assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM repository_snapshot", Integer.class)).isEqualTo(1);
-        assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM graph_node", Integer.class)).isEqualTo(2);
-        assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM graph_edge", Integer.class)).isEqualTo(1);
+        assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM repository_snapshot", Integer.class))
+                .isEqualTo(1);
+        assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM graph_node", Integer.class))
+                .isEqualTo(2);
+        assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM graph_edge", Integer.class))
+                .isEqualTo(1);
     }
 
     @Test
@@ -119,8 +124,10 @@ class SQLiteGraphSnapshotRepositoryTest {
         repository.save(snapshot("acme/app", "abc123"));
         jdbc.update("DELETE FROM repository_snapshot WHERE repository = ? AND commit_sha = ?", "acme/app", "abc123");
 
-        assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM graph_node", Integer.class)).isZero();
-        assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM graph_edge", Integer.class)).isZero();
+        assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM graph_node", Integer.class))
+                .isZero();
+        assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM graph_edge", Integer.class))
+                .isZero();
     }
 
     @Test
@@ -131,7 +138,8 @@ class SQLiteGraphSnapshotRepositoryTest {
 
         GraphSnapshot actual = repository.find("acme/app", "abc123").orElseThrow();
         assertThat(actual.metrics()).isEqualTo(new GraphMetrics(2, 1, 1, 2));
-        assertThat(actual.warnings()).containsExactly(new GraphWarning("DYNAMIC_CALL", "cannot resolve", "src/a.ts", 8));
+        assertThat(actual.warnings())
+                .containsExactly(new GraphWarning("DYNAMIC_CALL", "cannot resolve", "src/a.ts", 8));
         assertThat(actual.edges().get(0).confidence()).isEqualTo(0.75);
         assertThat(actual.edges().get(0).location()).isEqualTo(new SourceLocation("src/a.ts", 8, 2, 8, 7));
     }
@@ -140,10 +148,15 @@ class SQLiteGraphSnapshotRepositoryTest {
         GraphNode from = new GraphNode("n1", SymbolKind.FUNCTION, "load", "src/a.ts", 1, 3, 0, 4);
         GraphNode to = new GraphNode("n2", SymbolKind.FUNCTION, "save", "src/a.ts", 5, 7, 0, 4);
         GraphEdge edge = new GraphEdge("n1", "n2", EdgeKind.CALLS, 0.75, new SourceLocation("src/a.ts", 8, 2, 8, 7));
-        return new GraphSnapshot(repository, commit, List.of(from, to), List.of(edge),
+        return new GraphSnapshot(
+                repository,
+                commit,
+                List.of(from, to),
+                List.of(edge),
                 List.of(new GraphWarning("DYNAMIC_CALL", "cannot resolve", "src/a.ts", 8)),
                 new GraphMetrics(2, 1, 1, 2));
     }
+
     @org.junit.jupiter.api.Test
     void listsEveryRepositoryWithItsLatestCommitNewestFirst() {
         repository.save(snapshot("acme/app", "sha-1"));
@@ -196,12 +209,12 @@ class SQLiteGraphSnapshotRepositoryTest {
             assertThat(errors).isEmpty();
             for (int t = 0; t < threads; t++) {
                 for (int round = 0; round < rounds; round++) {
-                    assertThat(walRepository.find("wal/repo-" + t, "sha-" + round)).isPresent();
+                    assertThat(walRepository.find("wal/repo-" + t, "sha-" + round))
+                            .isPresent();
                 }
             }
         } finally {
             pool.shutdownNow();
         }
     }
-
 }

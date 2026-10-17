@@ -1,28 +1,30 @@
 package com.cartograph;
 
+import static org.assertj.core.api.Assertions.assertThat;
+
 import com.cartograph.application.IndexRepositoryService;
 import com.cartograph.graph.model.RepositoryRef;
 import com.cartograph.graph.model.RepositorySnapshot;
+import com.cartograph.ingestion.github.CloneProperties;
 import com.cartograph.ingestion.github.RepositorySourceFetcher;
 import com.cartograph.ingestion.github.RepositorySourceStrategy;
-import com.cartograph.ingestion.github.CloneProperties;
+import java.lang.reflect.Field;
+import java.util.List;
+import java.util.concurrent.atomic.AtomicInteger;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.context.ApplicationContext;
 
-import java.lang.reflect.Field;
-import java.util.List;
-import java.util.concurrent.atomic.AtomicInteger;
-
-import static org.assertj.core.api.Assertions.assertThat;
-
 @SpringBootTest
 class CartographApplicationSourceWiringTest {
     private static final String SHA = "a".repeat(40);
 
-    @Autowired ApplicationContext context;
-    @Autowired IndexRepositoryService service;
+    @Autowired
+    ApplicationContext context;
+
+    @Autowired
+    IndexRepositoryService service;
 
     @Test
     void productionServiceUsesTheStrategyBeanAsItsSourceBoundary() throws Exception {
@@ -30,7 +32,8 @@ class CartographApplicationSourceWiringTest {
 
         assertThat(injected).isSameAs(context.getBean("repositorySourceFetcher"));
         assertThat(injected).isInstanceOf(RepositorySourceStrategy.class);
-        assertThat(context.getBean("repositoryFetcher")).isInstanceOf(com.cartograph.ingestion.github.GitHubRepositoryFetcher.class);
+        assertThat(context.getBean("repositoryFetcher"))
+                .isInstanceOf(com.cartograph.ingestion.github.GitHubRepositoryFetcher.class);
     }
 
     @Test
@@ -43,10 +46,13 @@ class CartographApplicationSourceWiringTest {
         };
         ClonePropertiesFixture fixture = new ClonePropertiesFixture();
 
-        var thresholdStrategy = new RepositorySourceStrategy(rest, clone, fixture.properties,
+        var thresholdStrategy = new RepositorySourceStrategy(
+                rest,
+                clone,
+                fixture.properties,
                 (ref, sha) -> new RepositorySourceStrategy.TreeInspection(10_000, false));
-        var truncatedStrategy = new RepositorySourceStrategy(rest, clone, fixture.properties,
-                (ref, sha) -> new RepositorySourceStrategy.TreeInspection(1, true));
+        var truncatedStrategy = new RepositorySourceStrategy(
+                rest, clone, fixture.properties, (ref, sha) -> new RepositorySourceStrategy.TreeInspection(1, true));
 
         thresholdStrategy.fetch(fixture.ref, SHA);
         truncatedStrategy.fetch(fixture.ref, SHA);

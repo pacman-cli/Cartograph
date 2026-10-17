@@ -1,9 +1,8 @@
 package com.cartograph.application;
 
+import com.cartograph.graph.model.GraphSnapshot;
 import java.util.List;
 import java.util.Optional;
-
-import com.cartograph.graph.model.GraphSnapshot;
 
 /**
  * Driven port for graph snapshot persistence. Implementations (the SQLite
@@ -26,8 +25,7 @@ public interface GraphSnapshotRepository {
     Optional<GraphSnapshot> findLatest(String repository);
 
     /** Read model for the repository-discovery endpoint. */
-    record RepositorySummary(String repository, String commitSha, String indexedAt) {
-    }
+    record RepositorySummary(String repository, String commitSha, String indexedAt) {}
 
     /**
      * Lists every indexed repository with its latest commit, newest first.

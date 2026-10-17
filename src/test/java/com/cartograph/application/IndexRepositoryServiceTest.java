@@ -1,18 +1,17 @@
 package com.cartograph.application;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertSame;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.mockito.Mockito.*;
+
 import com.cartograph.graph.GraphBuilder;
 import com.cartograph.graph.model.*;
 import com.cartograph.ingestion.GitHubUrlNormalizer;
 import com.cartograph.ingestion.github.RepositorySourceFetcher;
-import org.junit.jupiter.api.Test;
-
 import java.util.List;
 import java.util.Optional;
-
-import static org.junit.jupiter.api.Assertions.assertSame;
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.mockito.Mockito.*;
+import org.junit.jupiter.api.Test;
 
 class IndexRepositoryServiceTest {
     private final RepositoryRef ref = new RepositoryRef("acme", "widgets", "main");
@@ -22,17 +21,22 @@ class IndexRepositoryServiceTest {
     void movingBranchIsFetchedAtTheCommitUsedForTheCacheLookup() {
         RepositoryFetcher fetcher = new RepositoryFetcher() {
             @Override
-            public String resolveCommit(RepositoryRef requested) { return "original"; }
+            public String resolveCommit(RepositoryRef requested) {
+                return "original";
+            }
 
             @Override
             public RepositorySnapshot fetch(RepositoryRef requested) {
-                return new RepositorySnapshot(requested.coordinate(),
-                        "main".equals(requested.ref()) ? "moved" : requested.ref(), List.of());
+                return new RepositorySnapshot(
+                        requested.coordinate(), "main".equals(requested.ref()) ? "moved" : requested.ref(), List.of());
             }
         };
         GraphSnapshotRepository repository = mock(GraphSnapshotRepository.class);
         when(repository.find(ref.coordinate(), "original")).thenReturn(Optional.empty());
-        IndexRepositoryService service = new IndexRepositoryService(new GitHubUrlNormalizer(), fetcher, repository,
+        IndexRepositoryService service = new IndexRepositoryService(
+                new GitHubUrlNormalizer(),
+                fetcher,
+                repository,
                 new GraphBuilder(file -> new ParsedFile(file.path(), List.of(), List.of())));
 
         assertEquals("original", service.index(ref).commitSha());
@@ -53,8 +57,10 @@ class IndexRepositoryServiceTest {
         when(repository.find(ref.coordinate(), "original")).thenReturn(Optional.empty());
         when(fetcher.fetchResolved(ref, "original"))
                 .thenReturn(new RepositorySnapshot(ref.coordinate(), "moved", List.of()));
-        IndexRepositoryService service = new IndexRepositoryService(new GitHubUrlNormalizer(), fetcher, repository,
-                new GraphBuilder(file -> { throw new AssertionError("mismatched source must not be parsed"); }));
+        IndexRepositoryService service =
+                new IndexRepositoryService(new GitHubUrlNormalizer(), fetcher, repository, new GraphBuilder(file -> {
+                    throw new AssertionError("mismatched source must not be parsed");
+                }));
 
         assertThrows(IllegalStateException.class, () -> service.index(ref));
         verify(repository, never()).save(any());
@@ -66,8 +72,10 @@ class IndexRepositoryServiceTest {
         GraphSnapshotRepository repository = mock(GraphSnapshotRepository.class);
         when(fetcher.resolveCommit(ref)).thenReturn("sha");
         when(repository.find("acme/widgets", "sha")).thenReturn(Optional.of(cached));
-        IndexRepositoryService service = new IndexRepositoryService(new GitHubUrlNormalizer(), fetcher, repository,
-                new GraphBuilder(file -> { throw new AssertionError("parser must not run"); }));
+        IndexRepositoryService service =
+                new IndexRepositoryService(new GitHubUrlNormalizer(), fetcher, repository, new GraphBuilder(file -> {
+                    throw new AssertionError("parser must not run");
+                }));
 
         assertSame(cached, service.index(ref));
         verify(fetcher, never()).fetch(any());
@@ -79,11 +87,15 @@ class IndexRepositoryServiceTest {
     void missFetchesBuildsAndSavesSnapshot() {
         RepositoryFetcher fetcher = mock(RepositoryFetcher.class);
         GraphSnapshotRepository repository = mock(GraphSnapshotRepository.class);
-        RepositorySnapshot source = new RepositorySnapshot("acme/widgets", "sha", List.of(new SourceFile("a.ts", "", "typescript")));
+        RepositorySnapshot source =
+                new RepositorySnapshot("acme/widgets", "sha", List.of(new SourceFile("a.ts", "", "typescript")));
         when(fetcher.resolveCommit(ref)).thenReturn("sha");
         when(repository.find("acme/widgets", "sha")).thenReturn(Optional.empty());
         when(fetcher.fetchResolved(ref, "sha")).thenReturn(source);
-        IndexRepositoryService service = new IndexRepositoryService(new GitHubUrlNormalizer(), fetcher, repository,
+        IndexRepositoryService service = new IndexRepositoryService(
+                new GitHubUrlNormalizer(),
+                fetcher,
+                repository,
                 new GraphBuilder(file -> new ParsedFile(file.path(), List.of(), List.of())));
 
         GraphSnapshot built = service.index(ref);
@@ -103,8 +115,12 @@ class IndexRepositoryServiceTest {
         when(resolver.resolveCommit(ref)).thenReturn("sha");
         when(repository.find(ref.coordinate(), "sha")).thenReturn(Optional.empty());
         when(source.fetch(ref, "sha")).thenReturn(new RepositorySnapshot(ref.coordinate(), "sha", List.of()));
-        IndexRepositoryService service = new IndexRepositoryService(new GitHubUrlNormalizer(), resolver, source,
-                repository, new GraphBuilder(file -> new ParsedFile(file.path(), List.of(), List.of())));
+        IndexRepositoryService service = new IndexRepositoryService(
+                new GitHubUrlNormalizer(),
+                resolver,
+                source,
+                repository,
+                new GraphBuilder(file -> new ParsedFile(file.path(), List.of(), List.of())));
 
         service.index(ref);
 

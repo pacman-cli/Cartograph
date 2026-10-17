@@ -31,7 +31,9 @@ public final class CloneWorkspace implements AutoCloseable {
         }
     }
 
-    public Path root() { return root; }
+    public Path root() {
+        return root;
+    }
 
     /** Returns the absent destination Git clone is expected to create. */
     public Path destination() {
@@ -70,16 +72,19 @@ public final class CloneWorkspace implements AutoCloseable {
 
     public void cleanup(Duration timeout) {
         Objects.requireNonNull(timeout, "timeout must not be null");
-        if (timeout.isZero() || timeout.isNegative()) throw new IllegalArgumentException("Cleanup timeout must be positive");
+        if (timeout.isZero() || timeout.isNegative())
+            throw new IllegalArgumentException("Cleanup timeout must be positive");
         if (!cleaned.compareAndSet(false, true)) return;
         AtomicReference<Throwable> failure = new AtomicReference<>();
-        Thread worker = new Thread(() -> {
-            try {
-                deleteTree();
-            } catch (Throwable error) {
-                failure.set(error);
-            }
-        }, "clone-workspace-cleanup");
+        Thread worker = new Thread(
+                () -> {
+                    try {
+                        deleteTree();
+                    } catch (Throwable error) {
+                        failure.set(error);
+                    }
+                },
+                "clone-workspace-cleanup");
         worker.setDaemon(true);
         worker.start();
         try {
@@ -87,23 +92,28 @@ public final class CloneWorkspace implements AutoCloseable {
             if (worker.isAlive()) {
                 worker.interrupt();
                 join(worker, TimeUnit.MILLISECONDS.toNanos(50));
-                String state = worker.isAlive() ? "cleanup remains in progress; retry is not supported"
+                String state = worker.isAlive()
+                        ? "cleanup remains in progress; retry is not supported"
                         : "cleanup stopped after timeout";
-                throw new CloneFailureException(CloneFailureException.Kind.CLONE_FAILED,
-                        new CleanupDiagnostic("Clone workspace cleanup timeout root=" + root
-                                + " timeout=" + timeout + " " + state));
+                throw new CloneFailureException(
+                        CloneFailureException.Kind.CLONE_FAILED,
+                        new CleanupDiagnostic(
+                                "Clone workspace cleanup timeout root=" + root + " timeout=" + timeout + " " + state));
             }
             if (failure.get() != null) {
                 throw new CloneFailureException(CloneFailureException.Kind.CLONE_FAILED, failure.get());
             }
         } catch (InterruptedException error) {
             worker.interrupt();
-            try { join(worker, TimeUnit.MILLISECONDS.toNanos(50)); }
-            catch (InterruptedException ignored) { }
+            try {
+                join(worker, TimeUnit.MILLISECONDS.toNanos(50));
+            } catch (InterruptedException ignored) {
+            }
             Thread.currentThread().interrupt();
-            throw new CloneFailureException(CloneFailureException.Kind.CLONE_FAILED,
-                    new CleanupDiagnostic("Clone workspace cleanup interrupted root=" + root
-                            + " timeout=" + timeout + " cleanup status unknown"));
+            throw new CloneFailureException(
+                    CloneFailureException.Kind.CLONE_FAILED,
+                    new CleanupDiagnostic("Clone workspace cleanup interrupted root=" + root + " timeout=" + timeout
+                            + " cleanup status unknown"));
         }
     }
 
@@ -117,7 +127,9 @@ public final class CloneWorkspace implements AutoCloseable {
     }
 
     @Override
-    public void close() { cleanup(Duration.ofSeconds(10)); }
+    public void close() {
+        cleanup(Duration.ofSeconds(10));
+    }
 
     private boolean hasSymlinkAncestor(Path candidate) {
         Path current = candidate.getParent();
@@ -131,12 +143,17 @@ public final class CloneWorkspace implements AutoCloseable {
     private void deleteTree() {
         try {
             Files.walkFileTree(root, new SimpleFileVisitor<>() {
-                @Override public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) throws IOException {
-                    Files.deleteIfExists(file); return FileVisitResult.CONTINUE;
+                @Override
+                public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) throws IOException {
+                    Files.deleteIfExists(file);
+                    return FileVisitResult.CONTINUE;
                 }
-                @Override public FileVisitResult postVisitDirectory(Path directory, IOException failure) throws IOException {
+
+                @Override
+                public FileVisitResult postVisitDirectory(Path directory, IOException failure) throws IOException {
                     if (failure != null) throw failure;
-                    Files.deleteIfExists(directory); return FileVisitResult.CONTINUE;
+                    Files.deleteIfExists(directory);
+                    return FileVisitResult.CONTINUE;
                 }
             });
         } catch (IOException error) {
@@ -158,6 +175,8 @@ public final class CloneWorkspace implements AutoCloseable {
     }
 
     private static final class CleanupDiagnostic extends RuntimeException {
-        private CleanupDiagnostic(String message) { super(message); }
+        private CleanupDiagnostic(String message) {
+            super(message);
+        }
     }
 }

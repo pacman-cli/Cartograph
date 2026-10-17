@@ -24,7 +24,9 @@ public class CloneFailureException extends RuntimeException {
         this.kind = kind;
     }
 
-    public Kind kind() { return kind; }
+    public Kind kind() {
+        return kind;
+    }
 
     private static String safeMessage(Kind kind) {
         return switch (kind) {

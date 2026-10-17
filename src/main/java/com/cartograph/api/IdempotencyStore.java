@@ -11,11 +11,15 @@ import java.util.Map;
  */
 public final class IdempotencyStore {
     /** Outcome of {@link #lookup}. */
-    public enum Outcome { MISS, REPLAY, CONFLICT }
+    public enum Outcome {
+        MISS,
+        REPLAY,
+        CONFLICT
+    }
 
-    public record Entry(int status, String contentType, byte[] body) { }
+    public record Entry(int status, String contentType, byte[] body) {}
 
-    private record Cached(long storedAtMillis, String bodyHash, Entry entry) { }
+    private record Cached(long storedAtMillis, String bodyHash, Entry entry) {}
 
     private final int maxEntries;
     private final long ttlMillis;
@@ -66,5 +70,5 @@ public final class IdempotencyStore {
     }
 
     /** Immutable lookup result: outcome plus the stored entry when REPLAY. */
-    public record Record(Outcome outcome, Entry entry) { }
+    public record Record(Outcome outcome, Entry entry) {}
 }

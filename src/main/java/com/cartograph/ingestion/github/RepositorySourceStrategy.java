@@ -2,7 +2,6 @@ package com.cartograph.ingestion.github;
 
 import com.cartograph.graph.model.RepositoryRef;
 import com.cartograph.graph.model.RepositorySnapshot;
-
 import java.util.Objects;
 
 /** Chooses REST or shallow-clone materialization after inspecting the resolved commit tree. */
@@ -23,13 +22,16 @@ public final class RepositorySourceStrategy implements RepositorySourceFetcher {
     private final CloneProperties properties;
     private final TreeInspector inspector;
 
-    public RepositorySourceStrategy(GitHubRepositoryFetcher rest, RepositorySourceFetcher clone,
-                                    CloneProperties properties) {
+    public RepositorySourceStrategy(
+            GitHubRepositoryFetcher rest, RepositorySourceFetcher clone, CloneProperties properties) {
         this(rest, clone, properties, rest::inspectTree);
     }
 
-    public RepositorySourceStrategy(RepositorySourceFetcher rest, RepositorySourceFetcher clone,
-                                    CloneProperties properties, TreeInspector inspector) {
+    public RepositorySourceStrategy(
+            RepositorySourceFetcher rest,
+            RepositorySourceFetcher clone,
+            CloneProperties properties,
+            TreeInspector inspector) {
         this.rest = Objects.requireNonNull(rest, "rest fetcher");
         this.clone = Objects.requireNonNull(clone, "clone fetcher");
         this.properties = Objects.requireNonNull(properties, "clone properties");

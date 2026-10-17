@@ -6,7 +6,6 @@ import com.cartograph.graph.model.RepositorySnapshot;
 import com.cartograph.graph.model.SourceFile;
 import com.cartograph.ingestion.IndexingLimits;
 import com.cartograph.ingestion.RepositoryLimitException;
-
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
@@ -26,8 +25,18 @@ import java.util.Set;
 /** Reads only bounded, supported source files from an isolated clone. */
 public final class CloneSourceWalker {
     private static final Set<String> IGNORED_DIRECTORIES = Set.of(
-            ".git", "node_modules", "vendor", "dist", "build", "target", "coverage",
-            "out", "generated", "__pycache__", ".venv", "venv");
+            ".git",
+            "node_modules",
+            "vendor",
+            "dist",
+            "build",
+            "target",
+            "coverage",
+            "out",
+            "generated",
+            "__pycache__",
+            ".venv",
+            "venv");
 
     private final IndexingLimits limits;
 
@@ -77,13 +86,19 @@ public final class CloneSourceWalker {
 
     private void visitRegularFile(Path path, WalkState state) {
         state.filesSeen++;
-        String relative = state.root.relativize(path).toString()
+        String relative = state.root
+                .relativize(path)
+                .toString()
                 .replace(path.getFileSystem().getSeparator(), "/");
         String language = language(relative);
         if (language == null) {
-            state.warnings.add(new GraphWarning(isPython(relative) ? "UNSUPPORTED_LANGUAGE" : "UNSUPPORTED_FILE",
-                    isPython(relative) ? "Python source is not supported and was skipped"
-                            : "File type is not supported and was skipped", relative, null));
+            state.warnings.add(new GraphWarning(
+                    isPython(relative) ? "UNSUPPORTED_LANGUAGE" : "UNSUPPORTED_FILE",
+                    isPython(relative)
+                            ? "Python source is not supported and was skipped"
+                            : "File type is not supported and was skipped",
+                    relative,
+                    null));
             return;
         }
         long candidate = state.candidates + 1;

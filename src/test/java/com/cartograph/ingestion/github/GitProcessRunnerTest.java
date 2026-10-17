@@ -1,15 +1,14 @@
 package com.cartograph.ingestion.github;
 
-import org.junit.jupiter.api.Test;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Duration;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicReference;
-
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import org.junit.jupiter.api.Test;
 
 class GitProcessRunnerTest {
     @Test
@@ -17,8 +16,8 @@ class GitProcessRunnerTest {
         Path directory = Files.createTempDirectory("runner-test-");
         Path script = script(directory, "printf '%s|%s|%s' \"$1\" \"$2\" \"$(pwd)\"\n");
 
-        ProcessResult result = new GitProcessRunner().run(
-                List.of(script.toString(), "first", "second"), directory, Duration.ofSeconds(2), 256);
+        ProcessResult result = new GitProcessRunner()
+                .run(List.of(script.toString(), "first", "second"), directory, Duration.ofSeconds(2), 256);
 
         assertThat(result.exitCode()).isZero();
         assertThat(result.stdout()).startsWith("first|second|").contains(directory.toString());
@@ -29,8 +28,8 @@ class GitProcessRunnerTest {
         Path directory = Files.createTempDirectory("runner-test-");
         Path script = script(directory, "printf 'out%.0s' {1..100}; printf 'err%.0s' {1..100} >&2; exit 7\n");
 
-        assertThatThrownBy(() -> new GitProcessRunner().run(
-                List.of(script.toString()), directory, Duration.ofSeconds(2), 20))
+        assertThatThrownBy(() ->
+                        new GitProcessRunner().run(List.of(script.toString()), directory, Duration.ofSeconds(2), 20))
                 .isInstanceOf(CloneFailureException.class)
                 .satisfies(error -> {
                     var failure = (CloneFailureException) error;
@@ -48,8 +47,8 @@ class GitProcessRunnerTest {
         Path marker = directory.resolve("finished");
         Path script = script(directory, "sleep 30; touch \"" + marker + "\"\n");
 
-        assertThatThrownBy(() -> new GitProcessRunner().run(
-                List.of(script.toString()), directory, Duration.ofMillis(100), 100))
+        assertThatThrownBy(() ->
+                        new GitProcessRunner().run(List.of(script.toString()), directory, Duration.ofMillis(100), 100))
                 .isInstanceOf(CloneFailureException.class)
                 .extracting(error -> ((CloneFailureException) error).kind())
                 .isEqualTo(CloneFailureException.Kind.CLONE_TIMEOUT);
@@ -62,8 +61,8 @@ class GitProcessRunnerTest {
         Path script = script(directory, "(sleep 5)& exit 0\n");
 
         long started = System.nanoTime();
-        assertThatThrownBy(() -> new GitProcessRunner().run(
-                List.of(script.toString()), directory, Duration.ofMillis(150), 100))
+        assertThatThrownBy(() ->
+                        new GitProcessRunner().run(List.of(script.toString()), directory, Duration.ofMillis(150), 100))
                 .isInstanceOf(CloneFailureException.class)
                 .extracting(error -> ((CloneFailureException) error).kind())
                 .isEqualTo(CloneFailureException.Kind.CLONE_TIMEOUT);
@@ -89,8 +88,7 @@ class GitProcessRunnerTest {
         thread.join(3000);
 
         assertThat(failure.get()).isInstanceOf(CloneFailureException.class);
-        assertThat(((CloneFailureException) failure.get()).kind())
-                .isEqualTo(CloneFailureException.Kind.CLONE_TIMEOUT);
+        assertThat(((CloneFailureException) failure.get()).kind()).isEqualTo(CloneFailureException.Kind.CLONE_TIMEOUT);
         assertThat(thread.isAlive()).isFalse();
     }
 

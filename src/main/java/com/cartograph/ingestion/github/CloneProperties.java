@@ -8,13 +8,29 @@ public class CloneProperties {
     private long cleanupTimeoutSeconds = 10;
     private String executable = "git";
 
-    public boolean enabled() { return enabled; }
-    public long fileThreshold() { return fileThreshold; }
-    public long timeoutSeconds() { return timeoutSeconds; }
-    public long cleanupTimeoutSeconds() { return cleanupTimeoutSeconds; }
-    public String executable() { return executable; }
+    public boolean enabled() {
+        return enabled;
+    }
 
-    public void setEnabled(boolean value) { enabled = value; }
+    public long fileThreshold() {
+        return fileThreshold;
+    }
+
+    public long timeoutSeconds() {
+        return timeoutSeconds;
+    }
+
+    public long cleanupTimeoutSeconds() {
+        return cleanupTimeoutSeconds;
+    }
+
+    public String executable() {
+        return executable;
+    }
+
+    public void setEnabled(boolean value) {
+        enabled = value;
+    }
 
     public void setFileThreshold(long value) {
         if (value <= 0) throw new IllegalArgumentException("Clone file threshold must be positive");

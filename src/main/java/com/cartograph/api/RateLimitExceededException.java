@@ -9,5 +9,7 @@ public class RateLimitExceededException extends RuntimeException {
         this.retryAfterSeconds = retryAfterSeconds;
     }
 
-    public long retryAfterSeconds() { return retryAfterSeconds; }
+    public long retryAfterSeconds() {
+        return retryAfterSeconds;
+    }
 }

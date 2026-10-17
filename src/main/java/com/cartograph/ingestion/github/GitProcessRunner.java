@@ -31,7 +31,9 @@ public final class GitProcessRunner {
 
         Process process;
         try {
-            process = new ProcessBuilder(List.copyOf(arguments)).directory(workingDirectory.toFile()).start();
+            process = new ProcessBuilder(List.copyOf(arguments))
+                    .directory(workingDirectory.toFile())
+                    .start();
         } catch (IOException | SecurityException error) {
             throw new CloneFailureException(CloneFailureException.Kind.CLONE_UNAVAILABLE, error);
         }
@@ -48,7 +50,8 @@ public final class GitProcessRunner {
             if (!process.waitFor(remainingNanos(deadline), TimeUnit.NANOSECONDS)) {
                 throw timeout(process, stdout, stderr);
             }
-            ProcessResult result = new ProcessResult(process.exitValue(), output(stdout, deadline), output(stderr, deadline));
+            ProcessResult result =
+                    new ProcessResult(process.exitValue(), output(stdout, deadline), output(stderr, deadline));
             if (result.exitCode() != 0) {
                 throw new CloneFailureException(CloneFailureException.Kind.CLONE_FAILED, result);
             }
@@ -67,7 +70,8 @@ public final class GitProcessRunner {
             closeQuietly(process.getErrorStream());
             readers.shutdownNow();
             try {
-                if (!readers.awaitTermination(Math.min(100, Math.max(1, remainingMillis(deadline))), TimeUnit.MILLISECONDS)) {
+                if (!readers.awaitTermination(
+                        Math.min(100, Math.max(1, remainingMillis(deadline))), TimeUnit.MILLISECONDS)) {
                     readers.shutdownNow();
                 }
             } catch (InterruptedException error) {
@@ -106,7 +110,10 @@ public final class GitProcessRunner {
     }
 
     private static void closeQuietly(InputStream stream) {
-        try { stream.close(); } catch (IOException ignored) { }
+        try {
+            stream.close();
+        } catch (IOException ignored) {
+        }
     }
 
     private static String readBounded(InputStream stream, int limit) throws IOException {

@@ -2,7 +2,6 @@ package com.cartograph.ingestion.github;
 
 import com.cartograph.graph.model.RepositoryRef;
 import com.cartograph.graph.model.RepositorySnapshot;
-
 import java.nio.file.Path;
 import java.time.Duration;
 import java.util.List;
@@ -21,18 +20,21 @@ public final class ShallowCloneRepositoryFetcher implements RepositorySourceFetc
     private final Supplier<CloneWorkspace> workspaces;
     private final CloneSourceWalker walker;
 
-    public ShallowCloneRepositoryFetcher(CloneProperties properties, GitProcessRunner runner,
-                                         CloneSourceWalker walker) {
+    public ShallowCloneRepositoryFetcher(
+            CloneProperties properties, GitProcessRunner runner, CloneSourceWalker walker) {
         this(properties, runner::run, CloneWorkspace::create, walker);
     }
 
-    public ShallowCloneRepositoryFetcher(CloneProperties properties, GitProcessRunner runner,
-                                         com.cartograph.ingestion.IndexingLimits limits) {
+    public ShallowCloneRepositoryFetcher(
+            CloneProperties properties, GitProcessRunner runner, com.cartograph.ingestion.IndexingLimits limits) {
         this(properties, runner, new CloneSourceWalker(limits));
     }
 
-    public ShallowCloneRepositoryFetcher(CloneProperties properties, ProcessRunner runner,
-                                         Supplier<CloneWorkspace> workspaces, CloneSourceWalker walker) {
+    public ShallowCloneRepositoryFetcher(
+            CloneProperties properties,
+            ProcessRunner runner,
+            Supplier<CloneWorkspace> workspaces,
+            CloneSourceWalker walker) {
         this.properties = Objects.requireNonNull(properties);
         this.runner = Objects.requireNonNull(runner);
         this.workspaces = Objects.requireNonNull(workspaces);
@@ -48,14 +50,48 @@ public final class ShallowCloneRepositoryFetcher implements RepositorySourceFetc
         Throwable failure = null;
         try {
             Path destination = workspace.destination();
-            runner.run(List.of(properties.executable(), "clone", "--depth", "1", "--no-tags",
-                            "--single-branch", url, destination.toString()), workspace.root(), timeout(), 65_536);
-            runner.run(List.of(properties.executable(), "-C", destination.toString(), "fetch", "--depth", "1",
-                            "origin", resolvedCommitSha), workspace.root(), timeout(), 65_536);
-            runner.run(List.of(properties.executable(), "-C", destination.toString(), "checkout", "--detach", resolvedCommitSha),
-                    workspace.root(), timeout(), 65_536);
-            ProcessResult verified = runner.run(List.of(properties.executable(), "-C", destination.toString(), "rev-parse", "HEAD"),
-                    workspace.root(), timeout(), 256);
+            runner.run(
+                    List.of(
+                            properties.executable(),
+                            "clone",
+                            "--depth",
+                            "1",
+                            "--no-tags",
+                            "--single-branch",
+                            url,
+                            destination.toString()),
+                    workspace.root(),
+                    timeout(),
+                    65_536);
+            runner.run(
+                    List.of(
+                            properties.executable(),
+                            "-C",
+                            destination.toString(),
+                            "fetch",
+                            "--depth",
+                            "1",
+                            "origin",
+                            resolvedCommitSha),
+                    workspace.root(),
+                    timeout(),
+                    65_536);
+            runner.run(
+                    List.of(
+                            properties.executable(),
+                            "-C",
+                            destination.toString(),
+                            "checkout",
+                            "--detach",
+                            resolvedCommitSha),
+                    workspace.root(),
+                    timeout(),
+                    65_536);
+            ProcessResult verified = runner.run(
+                    List.of(properties.executable(), "-C", destination.toString(), "rev-parse", "HEAD"),
+                    workspace.root(),
+                    timeout(),
+                    256);
             if (!resolvedCommitSha.equalsIgnoreCase(verified.stdout().trim())) {
                 throw new CloneFailureException(CloneFailureException.Kind.CLONE_COMMIT_MISMATCH);
             }
@@ -71,7 +107,9 @@ public final class ShallowCloneRepositoryFetcher implements RepositorySourceFetc
         }
     }
 
-    private Duration timeout() { return Duration.ofSeconds(properties.timeoutSeconds()); }
+    private Duration timeout() {
+        return Duration.ofSeconds(properties.timeoutSeconds());
+    }
 
     private static String githubUrl(RepositoryRef ref) {
         if (!validSegment(ref.owner()) || !validSegment(ref.repository())) {
@@ -85,6 +123,7 @@ public final class ShallowCloneRepositoryFetcher implements RepositorySourceFetc
     }
 
     private static void validateSha(String sha) {
-        if (sha == null || !sha.matches("[0-9a-fA-F]{40}")) throw new IllegalArgumentException("Resolved commit must be a 40-character SHA");
+        if (sha == null || !sha.matches("[0-9a-fA-F]{40}"))
+            throw new IllegalArgumentException("Resolved commit must be a 40-character SHA");
     }
 }

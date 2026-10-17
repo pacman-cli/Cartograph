@@ -1,16 +1,15 @@
 package com.cartograph.ingestion.github;
 
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+
 import com.cartograph.graph.model.RepositoryRef;
 import com.cartograph.ingestion.IndexingLimits;
-import org.junit.jupiter.api.Test;
-
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
-
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import org.junit.jupiter.api.Test;
 
 class ShallowCloneRepositoryFetcherTest {
     private static final String SHA = "a".repeat(40);
@@ -19,34 +18,54 @@ class ShallowCloneRepositoryFetcherTest {
     @Test
     void clonesWithBoundedArgumentsAndVerifiesExactSha() throws Exception {
         List<List<String>> calls = new ArrayList<>();
-        var fetcher = new ShallowCloneRepositoryFetcher(new CloneProperties(), (args, cwd, timeout, output) -> {
-            calls.add(args);
-            if (args.contains("clone")) {
-                try {
-                    Files.createDirectories(Path.of(args.get(args.size() - 1), "src"));
-                    Files.writeString(Path.of(args.get(args.size() - 1), "src/main.ts"), "export const value = 1;");
-                } catch (Exception error) {
-                    throw new RuntimeException(error);
-                }
-            }
-            return new ProcessResult(0, args.contains("rev-parse") ? SHA + "\n" : "", "");
-        }, CloneWorkspace::create, new CloneSourceWalker(new IndexingLimits(10, 1000, 100)));
+        var fetcher = new ShallowCloneRepositoryFetcher(
+                new CloneProperties(),
+                (args, cwd, timeout, output) -> {
+                    calls.add(args);
+                    if (args.contains("clone")) {
+                        try {
+                            Files.createDirectories(Path.of(args.get(args.size() - 1), "src"));
+                            Files.writeString(
+                                    Path.of(args.get(args.size() - 1), "src/main.ts"), "export const value = 1;");
+                        } catch (Exception error) {
+                            throw new RuntimeException(error);
+                        }
+                    }
+                    return new ProcessResult(0, args.contains("rev-parse") ? SHA + "\n" : "", "");
+                },
+                CloneWorkspace::create,
+                new CloneSourceWalker(new IndexingLimits(10, 1000, 100)));
 
         assertThat(fetcher.fetch(ref, SHA).commitSha()).isEqualTo(SHA);
-        assertThat(calls.get(0)).containsExactly("git", "clone", "--depth", "1", "--no-tags",
-                "--single-branch", "https://github.com/acme/demo.git", calls.get(0).get(7));
+        assertThat(calls.get(0))
+                .containsExactly(
+                        "git",
+                        "clone",
+                        "--depth",
+                        "1",
+                        "--no-tags",
+                        "--single-branch",
+                        "https://github.com/acme/demo.git",
+                        calls.get(0).get(7));
         assertThat(calls).anySatisfy(command -> assertThat(command).contains("checkout", "--detach", SHA));
     }
 
     @Test
     void rejectsVerificationMismatchAndStillCleansWorkspace() {
-        var fetcher = new ShallowCloneRepositoryFetcher(new CloneProperties(), (args, cwd, timeout, output) -> {
-            if (args.contains("clone")) {
-                try { Files.createDirectories(Path.of(args.get(args.size() - 1))); }
-                catch (Exception error) { throw new RuntimeException(error); }
-            }
-            return new ProcessResult(0, args.contains("rev-parse") ? "b".repeat(40) : "", "");
-        }, CloneWorkspace::create, new CloneSourceWalker(new IndexingLimits(10, 1000, 100)));
+        var fetcher = new ShallowCloneRepositoryFetcher(
+                new CloneProperties(),
+                (args, cwd, timeout, output) -> {
+                    if (args.contains("clone")) {
+                        try {
+                            Files.createDirectories(Path.of(args.get(args.size() - 1)));
+                        } catch (Exception error) {
+                            throw new RuntimeException(error);
+                        }
+                    }
+                    return new ProcessResult(0, args.contains("rev-parse") ? "b".repeat(40) : "", "");
+                },
+                CloneWorkspace::create,
+                new CloneSourceWalker(new IndexingLimits(10, 1000, 100)));
 
         assertThatThrownBy(() -> fetcher.fetch(ref, SHA))
                 .isInstanceOf(CloneFailureException.class)
@@ -80,6 +99,7 @@ class ShallowCloneRepositoryFetcherTest {
 
         assertThatThrownBy(() -> new CloneSourceWalker(new IndexingLimits(1, 100, 100)).walk(root, ref, SHA))
                 .isInstanceOf(com.cartograph.ingestion.RepositoryLimitException.class)
-                .extracting("limit").isEqualTo(IndexingLimits.Limit.FILE_COUNT);
+                .extracting("limit")
+                .isEqualTo(IndexingLimits.Limit.FILE_COUNT);
     }
 }
