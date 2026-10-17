@@ -13,6 +13,7 @@ import com.cartograph.graph.model.GraphSnapshot;
 import com.cartograph.ingestion.IndexingLimits;
 import com.cartograph.ingestion.InvalidRepositoryUrlException;
 import com.cartograph.ingestion.RepositoryLimitException;
+import com.cartograph.ingestion.github.CloneFailureException;
 import com.cartograph.ingestion.github.GitHubFetchException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.util.List;
@@ -201,6 +202,33 @@ class IndexControllerTest {
                 .andExpect(status().isPayloadTooLarge())
                 .andExpect(jsonPath("$.code").value("REPOSITORY_LIMIT_EXCEEDED"));
     }
+
+    @Test
+    void mapsCloneFailuresToStableSafeResponses() throws Exception {
+        String url = "https://github.com/acme/widgets";
+        for (var mapping : List.of(
+                new CloneMapping(CloneFailureException.Kind.CLONE_UNAVAILABLE, 503, "CLONE_UNAVAILABLE"),
+                new CloneMapping(CloneFailureException.Kind.CLONE_TIMEOUT, 504, "CLONE_TIMEOUT"),
+                new CloneMapping(CloneFailureException.Kind.CLONE_FAILED, 502, "CLONE_FAILED"),
+                new CloneMapping(CloneFailureException.Kind.CLONE_COMMIT_MISMATCH, 502, "CLONE_COMMIT_MISMATCH"),
+                new CloneMapping(CloneFailureException.Kind.CLONE_DISABLED, 503, "CLONE_DISABLED"))) {
+            reset(service);
+            when(service.index(url))
+                    .thenThrow(new CloneFailureException(
+                            mapping.kind(), new IllegalStateException("command output secret=" + url)));
+            mvc.perform(post("/api/v1/index")
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content("{\"repositoryUrl\":\"" + url + "\"}"))
+                    .andExpect(status().is(mapping.status()))
+                    .andExpect(jsonPath("$.code").value(mapping.code()))
+                    .andExpect(jsonPath("$.message")
+                            .value(org.hamcrest.Matchers.not(org.hamcrest.Matchers.containsString("secret"))))
+                    .andExpect(jsonPath("$.message")
+                            .value(org.hamcrest.Matchers.not(org.hamcrest.Matchers.containsString(url))));
+        }
+    }
+
+    private record CloneMapping(CloneFailureException.Kind kind, int status, String code) {}
 
     @org.springframework.boot.test.context.TestConfiguration
     static class MetricsConfig {

@@ -249,10 +249,11 @@ Everything else sits on this. Kept deliberately small — no infra beyond what a
 **Depends on:** F0.02.
 
 #### F0.09 — Shallow-clone fallback `P0 · M`
+**Status:** 🟡 — Configuration, strategy selection, exact-SHA local clone integration, bounded process execution, source filtering, cleanup, timeout/interruption, and a deterministic 10,001-file routing fixture are covered by offline tests. The complete Java 17 verification suite passes after the README configuration table is synchronized. F0.09 remains In Progress because the large fixture proves clone selection without indexing all generated files, and no public 10k-file live indexing run is claimed.
 **Sub-tasks:** `git clone --depth 1` path for repos above the tree-API threshold (set in config); blob materialization from the clone; deterministic workspace temp-dir lifecycle + cleanup; clone timeout.
 **Acceptance criteria:**
-- [ ] A repo > 10k files indexes via clone path in CI (pinned test repo).
-- [ ] No temp workspace leaks after success, failure, or timeout (cleanup verified in test).
+- [ ] A repo > 10k files indexes via clone path in CI (pinned test repo). **Not yet evidenced:** the local 10,001-file fixture verifies strategy selection without parsing the generated files.
+- [x] No temp workspace leaks after success, failure, or timeout (cleanup verified in test).
 **Depends on:** F0.08.
 
 #### F0.10 — Repo guardrails & size caps `P0 · S`
@@ -938,6 +939,8 @@ North-star funnel for Gate B/C: `diagram_viewed → trace_started` (target ≥ 4
 ## 9. Changelog
 
 Tracking log — append one line per status change (see §0.4).
+
+2026-10-17 · F0.09 remains 🟡 · documented clone settings, local Git prerequisite, fallback conditions, and exact verification commands; synchronized the README configuration table; Java 17 suite measured 274 tests before the documentation-only correction. Full large-fixture clone/index evidence is still open.
 
 2026-10-03 · F0.08 remains 🟡 · resilience and pinned-fetch implementation passes combined 141-test suite; token-backed live acceptance and large-repo clone routing still open. Do not start the next feature until this feature's remaining scope is resolved.
 

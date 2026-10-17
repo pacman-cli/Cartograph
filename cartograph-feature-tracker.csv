@@ -7,7 +7,7 @@ F0.05,Secrets & config management,0.1 Foundation,0 - MVP,P0,S,F0.01,In Progress,
 F0.06,Error tracking & product analytics,0.1 Foundation,0 - MVP,P1,S,F0.04,Not Started,W8
 F0.07,URL input & validation,0.2 Repo Ingestion,0 - MVP,P0,S,F0.02,In Progress,W1
 F0.08,GitHub API client,0.2 Repo Ingestion,0 - MVP,P0,M,F0.02,In Progress,W2
-F0.09,Shallow-clone fallback,0.2 Repo Ingestion,0 - MVP,P0,M,F0.08,Not Started,W8
+F0.09,Shallow-clone fallback,0.2 Repo Ingestion,0 - MVP,P0,M,F0.08,In Progress,W8
 F0.10,Repo guardrails & size caps,0.2 Repo Ingestion,0 - MVP,P0,S,F0.08,In Progress,W1
 F0.11,Language detection,0.2 Repo Ingestion,0 - MVP,P0,S,F0.08,In Progress,W1
 F0.12,Async indexing jobs & queue,0.2 Repo Ingestion,0 - MVP,P0,L,F0.08,Not Started,W4

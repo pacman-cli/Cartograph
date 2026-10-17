@@ -4,6 +4,7 @@ import static org.hamcrest.Matchers.empty;
 import static org.hamcrest.Matchers.greaterThan;
 import static org.hamcrest.Matchers.hasItem;
 import static org.hamcrest.Matchers.not;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.springframework.http.MediaType.APPLICATION_JSON;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -13,6 +14,8 @@ import com.cartograph.application.RepositoryFetcher;
 import com.cartograph.graph.model.RepositoryRef;
 import com.cartograph.graph.model.RepositorySnapshot;
 import com.cartograph.graph.model.SourceFile;
+import com.cartograph.ingestion.github.GitHubClient;
+import com.cartograph.ingestion.github.RepositorySourceFetcher;
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.nio.file.Files;
@@ -23,6 +26,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.context.TestConfiguration;
+import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Primary;
 import org.springframework.core.io.ClassPathResource;
@@ -30,7 +34,7 @@ import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 import org.springframework.test.web.servlet.MockMvc;
 
-@SpringBootTest
+@SpringBootTest(properties = "spring.main.allow-bean-definition-overriding=true")
 @AutoConfigureMockMvc
 class IndexRepositoryEndToEndTest {
     private static final Path DATABASE = createDatabasePath();
@@ -46,8 +50,15 @@ class IndexRepositoryEndToEndTest {
     @org.springframework.beans.factory.annotation.Autowired
     FixtureRepositoryFetcher fetcher;
 
+    @org.springframework.beans.factory.annotation.Autowired
+    FixtureSourceFetcher sourceFetcher;
+
+    @MockBean
+    GitHubClient githubClient;
+
     @Test
     void indexesFixtureAndUsesPersistedSnapshotOnSecondRequest() throws Exception {
+        org.junit.jupiter.api.Assertions.assertTrue(new ClassPathResource("clone-fixture/README.md").exists());
         String request = "{\"repositoryUrl\":\"https://github.com/acme/fixture\"}";
 
         mvc.perform(post("/api/v1/index").contentType(APPLICATION_JSON).content(request))
@@ -70,8 +81,11 @@ class IndexRepositoryEndToEndTest {
                 .andExpect(jsonPath("$.edges", not(empty())));
 
         org.junit.jupiter.api.Assertions.assertEquals(
-                1, fetcher.fetchCount.get(), "second request must use SQLite cache");
+                0, fetcher.fetchCount.get(), "fixture resolver must not be used as the source boundary");
         org.junit.jupiter.api.Assertions.assertEquals(2, fetcher.resolveCommitCount.get());
+        org.junit.jupiter.api.Assertions.assertEquals(
+                1, sourceFetcher.fetchCount.get(), "second request must not refetch source");
+        verifyNoInteractions(githubClient);
     }
 
     @TestConfiguration(proxyBeanMethods = false)
@@ -80,6 +94,12 @@ class IndexRepositoryEndToEndTest {
         @Primary
         FixtureRepositoryFetcher fixtureRepositoryFetcher() {
             return new FixtureRepositoryFetcher();
+        }
+
+        @Bean(name = "repositorySourceFetcher")
+        @Primary
+        FixtureSourceFetcher fixtureSourceFetcher() {
+            return new FixtureSourceFetcher();
         }
     }
 
@@ -100,6 +120,27 @@ class IndexRepositoryEndToEndTest {
 
         @Override
         public RepositorySnapshot fetchResolved(RepositoryRef ref, String sha) {
+            org.junit.jupiter.api.Assertions.assertEquals("fixture-commit-sha", sha);
+            fetchCount.incrementAndGet();
+            try {
+                String source = new String(
+                        new ClassPathResource("fixtures/simple-ts-repo/main.ts")
+                                .getInputStream()
+                                .readAllBytes(),
+                        java.nio.charset.StandardCharsets.UTF_8);
+                return new RepositorySnapshot(
+                        ref.coordinate(), sha, List.of(new SourceFile("main.ts", source, "typescript")));
+            } catch (IOException e) {
+                throw new UncheckedIOException(e);
+            }
+        }
+    }
+
+    static final class FixtureSourceFetcher implements RepositorySourceFetcher {
+        private final AtomicInteger fetchCount = new AtomicInteger();
+
+        @Override
+        public RepositorySnapshot fetch(RepositoryRef ref, String sha) {
             org.junit.jupiter.api.Assertions.assertEquals("fixture-commit-sha", sha);
             fetchCount.incrementAndGet();
             try {

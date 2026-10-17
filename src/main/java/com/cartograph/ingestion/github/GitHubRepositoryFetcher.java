@@ -11,7 +11,7 @@ import java.util.List;
 import java.util.Locale;
 
 /** Fetches repository metadata and source files through the GitHub REST client. */
-public class GitHubRepositoryFetcher implements RepositoryFetcher {
+public class GitHubRepositoryFetcher implements RepositoryFetcher, RepositorySourceFetcher {
     private final GitHubClient client;
     private final IndexingLimits limits;
 
@@ -39,6 +39,11 @@ public class GitHubRepositoryFetcher implements RepositoryFetcher {
     @Override
     public RepositorySnapshot fetch(RepositoryRef ref) {
         return fetchResolved(ref, resolveCommit(ref));
+    }
+
+    @Override
+    public RepositorySnapshot fetch(RepositoryRef ref, String sha) {
+        return fetchResolved(ref, sha);
     }
 
     @Override
@@ -82,6 +87,33 @@ public class GitHubRepositoryFetcher implements RepositoryFetcher {
                         "UNSUPPORTED_FILE", "File type is not supported and was skipped", entry.path(), null))
                 .toList();
         return new RepositorySnapshot(ref.coordinate(), sha, files, warnings, blobs.size());
+    }
+
+    /** Inspects only the resolved tree, without downloading any file content. */
+    public RepositorySourceStrategy.TreeInspection inspectTree(RepositoryRef ref, String sha) {
+        validateSha(sha);
+        GitHubClient.TreeDto tree = requireBody(client.tree(ref, sha));
+        validateTree(tree);
+        if (Boolean.TRUE.equals(tree.truncated()) && tree.tree() == null) {
+            return new RepositorySourceStrategy.TreeInspection(0, true);
+        }
+        long files = tree.tree().stream()
+                .filter(entry -> "blob".equals(entry.type()))
+                .count();
+        return new RepositorySourceStrategy.TreeInspection(files, Boolean.TRUE.equals(tree.truncated()));
+    }
+
+    private static void validateTree(GitHubClient.TreeDto tree) {
+        if (Boolean.TRUE.equals(tree.truncated())) return;
+        if (tree.truncated() == null || tree.tree() == null) throw invalidResponse();
+        for (GitHubClient.TreeEntry entry : tree.tree()) {
+            if (entry == null
+                    || !validPath(entry.path())
+                    || !("blob".equals(entry.type()) || "tree".equals(entry.type()) || "commit".equals(entry.type()))
+                    || ("blob".equals(entry.type()) && (entry.size() == null || entry.size() < 0))) {
+                throw invalidResponse();
+            }
+        }
     }
 
     private static <T> T requireBody(GitHubClient.Response<T> response) {

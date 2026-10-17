@@ -3,6 +3,7 @@ package com.cartograph.ingestion.github;
 import com.cartograph.ingestion.IndexingLimits;
 import java.net.URI;
 import org.springframework.boot.context.properties.ConfigurationProperties;
+import org.springframework.boot.context.properties.NestedConfigurationProperty;
 
 /** Configuration owned by the GitHub adapter; the token is never part of a request DTO. */
 @ConfigurationProperties(prefix = "cartograph.github")
@@ -20,6 +21,9 @@ public class GitHubProperties {
     private int readTimeoutMillis = 15_000;
     private int cacheMaxEntries = 256;
     private long cacheMaxBytes = 16_777_216;
+
+    @NestedConfigurationProperty
+    private CloneProperties clone = new CloneProperties();
 
     public GitHubProperties() {}
 
@@ -75,6 +79,10 @@ public class GitHubProperties {
         return cacheMaxBytes;
     }
 
+    public CloneProperties clone() {
+        return clone;
+    }
+
     public void setMaxAttempts(int value) {
         if (value < 1 || value > 10) throw new IllegalArgumentException("GitHub max attempts must be between 1 and 10");
         maxAttempts = value;
@@ -108,6 +116,11 @@ public class GitHubProperties {
     public void setCacheMaxBytes(long value) {
         if (value < 0) throw new IllegalArgumentException("GitHub cache bytes must not be negative");
         cacheMaxBytes = value;
+    }
+
+    public void setClone(CloneProperties value) {
+        if (value == null) throw new IllegalArgumentException("GitHub clone properties must not be null");
+        clone = value;
     }
 
     public void setToken(String token) {

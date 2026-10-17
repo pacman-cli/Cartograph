@@ -1,13 +1,17 @@
 package com.cartograph;
 
 import com.cartograph.application.GraphSnapshotRepository;
-import com.cartograph.application.RepositoryFetcher;
 import com.cartograph.application.SourceParser;
 import com.cartograph.graph.GraphBuilder;
 import com.cartograph.ingestion.GitHubUrlNormalizer;
+import com.cartograph.ingestion.github.CloneProperties;
+import com.cartograph.ingestion.github.CloneSourceWalker;
 import com.cartograph.ingestion.github.GitHubClient;
 import com.cartograph.ingestion.github.GitHubProperties;
 import com.cartograph.ingestion.github.GitHubRepositoryFetcher;
+import com.cartograph.ingestion.github.GitProcessRunner;
+import com.cartograph.ingestion.github.RepositorySourceStrategy;
+import com.cartograph.ingestion.github.ShallowCloneRepositoryFetcher;
 import com.cartograph.parsing.javascript.JavaScriptTypeScriptParser;
 import com.cartograph.persistence.sqlite.SQLiteGraphSnapshotRepository;
 import java.io.IOException;
@@ -25,7 +29,6 @@ import org.springframework.context.annotation.Bean;
 @SpringBootApplication
 @org.springframework.boot.context.properties.ConfigurationPropertiesScan
 public class CartographApplication {
-
     @Bean
     GitHubUrlNormalizer gitHubUrlNormalizer() {
         return new GitHubUrlNormalizer();
@@ -40,8 +43,35 @@ public class CartographApplication {
     }
 
     @Bean
-    RepositoryFetcher repositoryFetcher(GitHubClient client, GitHubProperties properties) {
+    GitHubRepositoryFetcher repositoryFetcher(GitHubClient client, GitHubProperties properties) {
         return new GitHubRepositoryFetcher(client, properties);
+    }
+
+    @Bean
+    GitProcessRunner gitProcessRunner() {
+        return new GitProcessRunner();
+    }
+
+    @Bean
+    CloneProperties cloneProperties(GitHubProperties properties) {
+        return properties.clone();
+    }
+
+    @Bean
+    CloneSourceWalker cloneSourceWalker(GitHubProperties properties) {
+        return new CloneSourceWalker(properties.limits());
+    }
+
+    @Bean
+    ShallowCloneRepositoryFetcher shallowCloneRepositoryFetcher(
+            CloneProperties properties, GitProcessRunner runner, CloneSourceWalker walker) {
+        return new ShallowCloneRepositoryFetcher(properties, runner, walker);
+    }
+
+    @Bean
+    RepositorySourceStrategy repositorySourceFetcher(
+            GitHubRepositoryFetcher rest, ShallowCloneRepositoryFetcher clone, CloneProperties properties) {
+        return new RepositorySourceStrategy(rest, clone, properties);
     }
 
     @Bean
@@ -67,17 +97,10 @@ public class CartographApplication {
             throws IOException {
         Path database = Path.of(sqlitePath).toAbsolutePath();
         Path parent = database.getParent();
-        if (parent != null) {
-            Files.createDirectories(parent);
-        }
+        if (parent != null) Files.createDirectories(parent);
         return properties.initializeDataSourceBuilder().build();
     }
 
-    /**
-     * Launches the Spring Boot service.
-     *
-     * @param args command-line arguments passed to Spring Boot
-     */
     public static void main(String[] args) {
         SpringApplication.run(CartographApplication.class, args);
     }

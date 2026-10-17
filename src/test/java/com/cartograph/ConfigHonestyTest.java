@@ -5,6 +5,8 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.ArrayDeque;
+import java.util.Deque;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -59,6 +61,20 @@ class ConfigHonestyTest {
         assertEquals("30", defaults.get("cartograph.ratelimit.capacity"), "cartograph.ratelimit.capacity");
         assertEquals(
                 "60", defaults.get("cartograph.ratelimit.refill-per-minute"), "cartograph.ratelimit.refill-per-minute");
+        assertEquals("true", defaults.get("cartograph.github.clone.enabled"), "cartograph.github.clone.enabled");
+        assertEquals(
+                "10000",
+                defaults.get("cartograph.github.clone.file-threshold"),
+                "cartograph.github.clone.file-threshold");
+        assertEquals(
+                "120",
+                defaults.get("cartograph.github.clone.timeout-seconds"),
+                "cartograph.github.clone.timeout-seconds");
+        assertEquals(
+                "10",
+                defaults.get("cartograph.github.clone.cleanup-timeout-seconds"),
+                "cartograph.github.clone.cleanup-timeout-seconds");
+        assertEquals("git", defaults.get("cartograph.github.clone.executable"), "cartograph.github.clone.executable");
     }
 
     private Set<String> readmeCartographKeys() throws Exception {
@@ -75,33 +91,42 @@ class ConfigHonestyTest {
                         m -> m.group(1), m -> m.group(2).replace("`", "").strip(), (a, b) -> a));
     }
 
-    /** Dotted keys under the top-level {@code cartograph:} block (two-space indentation). */
+    /** Leaf keys at any nesting depth under the top-level {@code cartograph:} block. */
     private Set<String> ymlCartographKeys() throws Exception {
         Set<String> keys = new HashSet<>();
-        boolean inCartograph = false;
-        String parent = null;
-        for (String line : Files.readAllLines(YML)) {
+        Deque<YamlKey> path = new ArrayDeque<>();
+        List<String> lines = Files.readAllLines(YML);
+        for (int index = 0; index < lines.size(); index++) {
+            String line = lines.get(index);
             if (line.isBlank() || line.strip().startsWith("#")) continue;
             int indent = line.indexOf(line.strip());
             String stripped = line.strip();
+            var matcher = YML_KEY.matcher(stripped);
+            if (!matcher.find()) continue;
+            String key = matcher.group(1);
+            while (!path.isEmpty() && path.peek().indent() >= indent) path.pop();
             if (indent == 0) {
-                inCartograph = stripped.equals("cartograph:");
-                parent = null;
+                path.clear();
+                if (!key.equals("cartograph")) continue;
+            } else if (path.isEmpty() || !path.peek().fullPath().startsWith("cartograph")) {
                 continue;
             }
-            if (!inCartograph) continue;
-            var matcher = YML_KEY.matcher(stripped);
-            String key = matcher.find() ? matcher.group(1) : stripped;
-            if (indent == 2) {
-                parent = key;
-                keys.add("cartograph." + key);
-            } else if (indent == 4 && parent != null) {
-                keys.add("cartograph." + parent + "." + key);
-            }
+            path.push(
+                    new YamlKey(indent, key, path.isEmpty() ? key : path.peek().fullPath() + "." + key));
+            int nextIndent = nextKeyIndent(lines, index + 1);
+            if (nextIndent <= indent) keys.add(path.peek().fullPath());
         }
-        // namespace groups (e.g. cartograph.github) are not configurable leaves
-        return keys.stream()
-                .filter(key -> keys.stream().noneMatch(other -> other.startsWith(key + ".")))
-                .collect(Collectors.toUnmodifiableSet());
+        return Set.copyOf(keys);
     }
+
+    private int nextKeyIndent(List<String> lines, int start) {
+        for (int index = start; index < lines.size(); index++) {
+            String line = lines.get(index);
+            if (line.isBlank() || line.strip().startsWith("#") || line.strip().startsWith("-")) continue;
+            return line.indexOf(line.strip());
+        }
+        return -1;
+    }
+
+    private record YamlKey(int indent, String key, String fullPath) {}
 }
